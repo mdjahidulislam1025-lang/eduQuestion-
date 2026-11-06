@@ -413,8 +413,25 @@ export default function App() {
         const res = await signInWithEmailAndPassword(auth, authEmail, authPassword);
         setCurrentUser(res.user);
       } else {
-        const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
-        setCurrentUser(res.user);
+        try {
+          const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+          setCurrentUser(res.user);
+        } catch (signUpErr: any) {
+          if (signUpErr?.code === 'auth/email-already-in-use') {
+            try {
+              const signInRes = await signInWithEmailAndPassword(auth, authEmail, authPassword);
+              setCurrentUser(signInRes.user);
+            } catch {
+              setAuthMode('signin');
+              setAuthError(
+                'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। অনুগ্রহ করে "Continue with Google" অথবা সঠিক পাসওয়ার্ড দিয়ে "Sign In" করুন।'
+              );
+              return;
+            }
+          } else {
+            throw signUpErr;
+          }
+        }
       }
       setShowAuthModal(false);
       setAuthEmail('');
