@@ -1,0 +1,91 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Inter', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #0f172a;
+    background-color: #f8fafc;
+  }
+
+  .font-bangla {
+    font-family: 'Hind Siliguri', 'Noto Serif Bengali', sans-serif;
+  }
+
+  .font-serif-bangla {
+    font-family: 'Noto Serif Bengali', serif;
+  }
+}
+
+/* Print styling for professional A4 examination papers */
+@media print {
+  body {
+    background: white !important;
+    color: black !important;
+    font-size: 11pt !important;
+    line-height: 1.4 !important;
+  }
+
+  .no-print,
+  nav,
+  aside,
+  header,
+  .sidebar,
+  button,
+  .toast,
+  .modal-backdrop {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .exam-page {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  @page {
+    size: A4 portrait;
+    margin: 1.5cm 1.5cm 1.8cm 1.5cm;
+  }
+
+  .page-break-after {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+}
+
+/* Watermark styles */
+.watermark-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.watermark-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-30deg);
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* KaTeX formula display improvements */
+.katex-display {
+  margin: 0.5em 0 !important;
+  overflow-x: auto;
+  overflow-y: hidden;
+}

@@ -1,0 +1,6 @@
+{
+  "name": "EduQuestion AI",
+  "description": "Dedicated SSC Question Bank & Examination Paper Management System for Bangladesh (11 Education Boards, NCTB Curriculum)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

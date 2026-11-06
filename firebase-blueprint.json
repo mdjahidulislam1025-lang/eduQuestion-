@@ -1,0 +1,198 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile and account settings",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 256 },
+        "displayName": { "type": "string", "maxLength": 128 },
+        "currentWorkspaceId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Workspace": {
+      "title": "Workspace",
+      "description": "Multi-user educational workspace with institutional branding",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 256 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "ownerEmail": { "type": "string", "maxLength": 256 },
+        "institutionName": { "type": "string", "maxLength": 256 },
+        "institutionAddress": { "type": "string", "maxLength": 256 },
+        "logoUrl": { "type": "string", "maxLength": 2048 },
+        "watermarkText": { "type": "string", "maxLength": 128 },
+        "watermarkOpacity": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "name", "ownerId", "ownerEmail"]
+    },
+    "WorkspaceMember": {
+      "title": "WorkspaceMember",
+      "description": "Member assignment in a workspace with RBAC role",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workspaceId": { "type": "string", "maxLength": 128 },
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 256 },
+        "role": { "type": "string", "enum": ["OWNER", "ADMIN", "EDITOR", "VIEWER"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "workspaceId", "userId", "userEmail", "role"]
+    },
+    "SourceDocument": {
+      "title": "SourceDocument",
+      "description": "Uploaded NCTB textbook or past board exam paper with verification pipeline",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workspaceId": { "type": "string", "maxLength": 128 },
+        "uploaderId": { "type": "string", "maxLength": 128 },
+        "fileName": { "type": "string", "maxLength": 256 },
+        "classLevel": { "type": "string", "enum": ["Class 8", "Class 9", "Class 10"] },
+        "subject": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["UPLOADED", "PROCESSING", "REVIEW_REQUIRED", "VERIFIED", "FAILED"] },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "workspaceId", "uploaderId", "fileName", "classLevel", "subject", "status"]
+    },
+    "SavedQuestion": {
+      "title": "SavedQuestion",
+      "description": "Question bank item with provenance tracking",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workspaceId": { "type": "string", "maxLength": 128 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "classLevel": { "type": "string", "enum": ["Class 8", "Class 9", "Class 10"] },
+        "subject": { "type": "string", "maxLength": 128 },
+        "chapter": { "type": "string", "maxLength": 256 },
+        "questionType": { "type": "string", "enum": ["MCQ", "SQ", "CQ"] },
+        "questionText": { "type": "string", "maxLength": 10000 },
+        "marks": { "type": "number" },
+        "difficulty": { "type": "string", "enum": ["Easy", "Medium", "Hard"] },
+        "sourceType": { "type": "string", "enum": ["NCTB_TEXTBOOK", "BOARD_EXAM", "NCTB_BOARD_PATTERN", "ORIGINAL_AI"] },
+        "isVerified": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "workspaceId", "classLevel", "subject", "questionType", "questionText"]
+    },
+    "QuestionPaper": {
+      "title": "QuestionPaper",
+      "description": "Standardized examination paper with sections and customizable marks",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "workspaceId": { "type": "string", "maxLength": 128 },
+        "ownerId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "institutionName": { "type": "string", "maxLength": 256 },
+        "classLevel": { "type": "string", "enum": ["Class 8", "Class 9", "Class 10"] },
+        "subject": { "type": "string", "maxLength": 128 },
+        "totalMarks": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "workspaceId", "title", "classLevel", "subject", "totalMarks"]
+    },
+    "RepositoryContentItem": {
+      "title": "RepositoryContentItem",
+      "description": "Unified educational content or question item indexed in central repository",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "kind": { "type": "string", "enum": ["QUESTION", "KNOWLEDGE_CONTENT"] },
+        "contentType": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 512 },
+        "classLevel": { "type": "string", "maxLength": 64 },
+        "subject": { "type": "string", "maxLength": 128 },
+        "chapter": { "type": "string", "maxLength": 256 },
+        "content": { "type": "string", "maxLength": 20000 },
+        "summary": { "type": "string", "maxLength": 2048 },
+        "verificationStatus": { "type": "string", "maxLength": 64 },
+        "isVerified": { "type": "boolean" },
+        "sourceDocumentId": { "type": "string", "maxLength": 128 },
+        "sourceDocumentTitle": { "type": "string", "maxLength": 256 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "kind", "contentType", "title", "classLevel", "subject", "content"]
+    },
+    "AdminPdfDocument": {
+      "title": "AdminPdfDocument",
+      "description": "Admin uploaded PDF document with metadata and extraction status",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 256 },
+        "fileName": { "type": "string", "maxLength": 256 },
+        "category": { "type": "string", "maxLength": 64 },
+        "classLevel": { "type": "string", "maxLength": 64 },
+        "subject": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "maxLength": 32 },
+        "uploadedBy": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "fileName", "category", "classLevel", "subject", "status"]
+    },
+    "NCTBBook": {
+      "title": "NCTBBook",
+      "description": "NCTB textbook entry in the central book library",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "bookName": { "type": "string", "maxLength": 256 },
+        "classLevel": { "type": "string", "enum": ["Class 8", "Class 9", "Class 10"] },
+        "subject": { "type": "string", "maxLength": 128 },
+        "editionYear": { "type": "string", "maxLength": 64 },
+        "verificationStatus": { "type": "string", "maxLength": 32 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "bookName", "classLevel", "subject", "editionYear"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "Registered user profile and active workspace reference"
+    },
+    "/workspaces/{workspaceId}": {
+      "schema": "Workspace",
+      "description": "Educational workspace containing shared questions and documents"
+    },
+    "/workspace_members/{memberId}": {
+      "schema": "WorkspaceMember",
+      "description": "Role-based membership records mapping users to workspaces"
+    },
+    "/source_documents/{documentId}": {
+      "schema": "SourceDocument",
+      "description": "Uploaded NCTB books and board question source documents"
+    },
+    "/saved_questions/{questionId}": {
+      "schema": "SavedQuestion",
+      "description": "Shared workspace question library items"
+    },
+    "/question_papers/{paperId}": {
+      "schema": "QuestionPaper",
+      "description": "Examination papers configured in workspace"
+    },
+    "/repository_content/{itemId}": {
+      "schema": "RepositoryContentItem",
+      "description": "Unified educational content and question items indexed in central repository"
+    },
+    "/admin_pdfs/{docId}": {
+      "schema": "AdminPdfDocument",
+      "description": "Admin uploaded educational PDF documents"
+    },
+    "/nctb_books/{bookId}": {
+      "schema": "NCTBBook",
+      "description": "NCTB textbook records in repository"
+    }
+  }
+}

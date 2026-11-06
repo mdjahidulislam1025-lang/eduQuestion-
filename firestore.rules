@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isUser(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Role helpers
+    function isSuperOwner() {
+      return isSignedIn() && request.auth.token.email == 'mdjahidulislam1025@gmail.com';
+    }
+
+    // Connection test document
+    match /test/{docId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      allow get: if isUser(userId) || isSuperOwner();
+      allow list: if false; // PII protection
+      allow create: if isUser(userId);
+      allow update: if isUser(userId) && incoming().uid == existing().uid;
+      allow delete: if isUser(userId) || isSuperOwner();
+    }
+
+    // Workspaces
+    match /workspaces/{workspaceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
+      allow delete: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
+    }
+
+    // Workspace Members
+    match /workspace_members/{memberId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Source Documents (Uploaded NCTB textbooks & board exam PDFs)
+    match /source_documents/{documentId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Textbooks
+    match /textbooks/{textbookId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Board Questions
+    match /board_questions/{questionId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Saved Questions (Question Bank)
+    match /saved_questions/{questionId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Unified Central Repository Content & Knowledge
+    match /repository_content/{itemId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Admin Uploaded PDFs
+    match /admin_pdfs/{docId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // NCTB Books
+    match /nctb_books/{bookId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Question Papers
+    match /question_papers/{paperId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+
+    // Activity Logs
+    match /activity_logs/{logId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // immutable audit log
+    }
+
+    function isAdminOrOwner() {
+      return isSuperOwner() || (
+        isSignedIn() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['OWNER', 'ADMIN']
+      );
+    }
+
+    // Dynamic Classes
+    match /classes/{classId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdminOrOwner();
+    }
+
+    // Dynamic & Custom Subjects
+    match /subjects/{subjectId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminOrOwner() || (isSignedIn() && existing().createdBy == request.auth.uid);
+    }
+
+    // Exam Name Presets
+    match /examPresets/{presetId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminOrOwner() || (isSignedIn() && existing().createdBy == request.auth.uid);
+    }
+
+    // User Saved Configurations
+    match /userConfigurations/{configId} {
+      allow get, list: if isSignedIn() && (existing().userId == request.auth.uid || isSuperOwner());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (existing().userId == request.auth.uid || isSuperOwner());
+    }
+
+    // Question Papers (camelCase alias)
+    match /questionPapers/{paperId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isSignedIn();
+    }
+  }
+}
