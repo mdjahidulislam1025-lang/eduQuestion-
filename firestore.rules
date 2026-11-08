@@ -47,13 +47,11 @@ service cloud.firestore {
       allow delete: if isUser(userId) || isSuperOwner();
     }
 
-    // Workspaces
+    // Workspaces & Branding
     match /workspaces/{workspaceId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
-      allow delete: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
+      allow get, list: if true;
+      allow create, update: if isSignedIn() || isSuperOwner();
+      allow delete: if isSuperOwner();
     }
 
     // Workspace Members
@@ -156,6 +154,19 @@ service cloud.firestore {
     match /questionPapers/{paperId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isSignedIn();
+    }
+
+    // Public / User Submitted Questions
+    match /submitted_questions/{questionId} {
+      allow create: if true; // Any visitor from Vercel link can submit questions
+      allow get, list: if isSignedIn();
+      allow update, delete: if isAdminOrOwner();
+    }
+
+    // Admin Notifications
+    match /admin_notifications/{notificationId} {
+      allow create: if true;
+      allow get, list, update, delete: if isAdminOrOwner();
     }
   }
 }

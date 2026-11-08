@@ -43,14 +43,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onSignOut,
 }) => {
   const [profileDraft, setProfileDraft] = useState<UserProfile>(userProfile);
+  const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
   const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
 
-  const handleSaveProfile = () => {
-    onUpdateProfile(profileDraft);
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
+  React.useEffect(() => {
+    setProfileDraft(userProfile);
+  }, [userProfile]);
+
+  const handleSaveProfile = async () => {
+    setIsSaving(true);
+    try {
+      await Promise.resolve(onUpdateProfile(profileDraft));
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3500);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDownloadFullBackup = () => {
@@ -210,9 +222,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <div className="flex justify-end pt-2">
           <button
             onClick={handleSaveProfile}
-            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors"
+            disabled={isSaving}
+            className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-bold flex items-center gap-2 shadow-xs transition-colors"
           >
-            <Save className="w-4 h-4" /> Save Branding Preferences
+            <Save className="w-4 h-4" /> {isSaving ? 'Saving to Cloud & Device...' : 'Save Branding Preferences'}
           </button>
         </div>
       </div>

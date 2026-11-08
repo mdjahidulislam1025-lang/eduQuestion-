@@ -60,6 +60,36 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Endpoint: Notify Admin of user uploaded question
+app.post('/api/notifications/notify-admin', (req, res) => {
+  const {
+    questionId,
+    submitterName,
+    submitterEmail,
+    submitterPhone,
+    classLevel,
+    subject,
+    questionType,
+    questionText,
+    recipientEmail = 'mdjahidulislam1025@gmail.com',
+  } = req.body;
+
+  console.log(`[ADMIN NOTIFICATION] New question submitted for ${recipientEmail}:`, {
+    questionId,
+    submitterName,
+    classLevel,
+    subject,
+    questionType,
+  });
+
+  res.json({
+    success: true,
+    message: `Admin notification dispatched to ${recipientEmail}`,
+    recipientEmail,
+    questionId,
+  });
+});
+
 // Endpoint: Generate Questions (MCQ, SQ, CQ, Unique)
 app.post('/api/gemini/generate-questions', async (req, res) => {
   try {

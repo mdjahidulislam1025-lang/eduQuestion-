@@ -59,6 +59,12 @@ import { ExamPaperView } from './components/ExamPaperView';
 import { SettingsView } from './components/SettingsView';
 import { WorkspaceMembersView } from './components/WorkspaceMembersView';
 import { AdminConfigManager } from './components/AdminConfigManager';
+import { AdminDashboardView } from './components/AdminDashboardView';
+import { SubmitQuestionModal } from './components/SubmitQuestionModal';
+
+// Services
+import { loadWorkspaceBranding, saveWorkspaceBranding } from './services/brandingService';
+import { loadSubmittedQuestions } from './services/submissionService';
 
 // Icons
 import {
@@ -74,6 +80,7 @@ import {
   PlusCircle,
   Languages,
   Shield,
+  ShieldCheck,
   Layers,
   Trash2,
   Eye,
@@ -82,7 +89,8 @@ import {
   AlertTriangle,
   KeyRound,
   CheckCircle2,
-  ExternalLink
+  ExternalLink,
+  Upload
 } from 'lucide-react';
 
 const OWNER_EMAIL = 'mdjahidulislam1025@gmail.com';
@@ -102,9 +110,11 @@ export default function App() {
   // Bilingual state (Bangla / English)
   const [isBangla, setIsBangla] = useState<boolean>(true);
 
-  // Navigation
+  // Navigation & Modals
   const [activeView, setActiveView] = useState<string>('library');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [submitQuestionModalOpen, setSubmitQuestionModalOpen] = useState(false);
+  const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
 
   // Workspace & RBAC State
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace>({
@@ -261,17 +271,26 @@ export default function App() {
   useEffect(() => {
     testFirestoreConnection();
 
+    // 1. Authoritative Cloud & Local Workspace Branding Load
+    loadWorkspaceBranding().then((ws) => {
+      setCurrentWorkspace(ws);
+      setUserProfile((prev) => ({
+        ...prev,
+        institutionName: ws.institutionName,
+        institutionAddress: ws.institutionAddress,
+        logoUrl: ws.logoUrl,
+        watermarkText: ws.watermarkText,
+        watermarkOpacity: ws.watermarkOpacity,
+      }));
+    });
+
+    // 2. Count pending user submissions for Admin Dashboard
+    loadSubmittedQuestions().then((list) => {
+      setPendingSubmissionsCount(list.filter((s) => s.status === 'PENDING').length);
+    });
+
     const cachedQuestions = localStorage.getItem('edu_questions');
     const cachedPapers = localStorage.getItem('edu_papers');
-    const cachedWorkspace = localStorage.getItem('edu_workspace');
-
-    if (cachedWorkspace) {
-      try {
-        setCurrentWorkspace(JSON.parse(cachedWorkspace));
-      } catch (e) {
-        console.error(e);
-      }
-    }
 
     if (cachedQuestions) {
       try {
@@ -405,32 +424,43 @@ export default function App() {
 
   // Format auth errors with Bengali explanations and exact domain guidance
   const formatAuthError = (err: any): string => {
-    const code = err?.code || '';
+    const code = (err?.code || '').toLowerCase();
+    const msg = (err?.message || '').toLowerCase();
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
 
-    if (code === 'auth/unauthorized-domain') {
-      return `ডোমেইন অনুমোদিত নয় (auth/unauthorized-domain): আপনি বর্তমানে "${currentHost}" ডোমেইন থেকে সাইটটি ওপেন করেছেন। এই ডোমেইনটি এখনো Firebase-এ যুক্ত করা হয়নি। অনুগ্রহ করে Firebase Console (Project: kinetic-campus-9qk4z) -> Authentication -> Settings -> Authorized Domains-এ গিয়ে "${currentHost}" যুক্ত করুন।`;
+    if (code.includes('unauthorized-domain') || msg.includes('unauthorized-domain')) {
+      return `ডোমেইন অনুমোদিত নয় (auth/unauthorized-domain): আপনি বর্তমানে "${currentHost}" ডোমেইনে আছেন। Firebase Console (Project: kinetic-campus-9qk4z) -> Authentication -> Settings -> Authorized Domains-এ গিয়ে "${currentHost}" ডোমেইনটি যুক্ত (Add Domain) করুন। অথবা নিচে "অফলাইন এডমিন হিসেবে প্রবেশ" বাটনে ক্লিক করে কাজ চালিয়ে যান।`;
     }
-    if (code === 'auth/popup-blocked') {
+    if (code.includes('popup-blocked') || msg.includes('popup-blocked')) {
       return 'মোবাইল ব্রাউজারে পপ-আপ উইন্ডো ব্লক করা হয়েছে। দয়া করে নিচের "মোবাইলে Redirect দিয়ে লগইন" বাটনে চাপুন অথবা ব্রাউজারের পপ-আপ চালু করুন।';
     }
-    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-      return 'গুগল সাইন-ইন উইন্ডোটি সম্পূর্ণ হওয়ার আগেই বন্ধ করা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।';
+    if (
+      code.includes('popup-closed-by-user') ||
+      code.includes('cancelled-popup-request') ||
+      msg.includes('popup-closed-by-user') ||
+      msg.includes('cancelled-popup-request')
+    ) {
+      return 'গুগল সাইন-ইন উইন্ডোটি সম্পন্ন হওয়ার আগেই বন্ধ করা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।';
     }
-    if (code === 'auth/disallowed_useragent') {
+    if (code.includes('disallowed_useragent') || msg.includes('disallowed_useragent')) {
       return 'এই ব্রাউজারটি (যেমন Messenger বা Facebook WebView) গুগল লগইন সাপোর্ট করে না। দয়া করে উপরে ডানদিকের তিনটি ডটে (⋮) ক্লিক করে "Open in Chrome" বা "Open in Safari" দিয়ে ওপেন করুন।';
     }
-    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
-      return 'ভুল পাসওয়ার্ড অথবা এই ইমেইলটিতে এখনো পাসওয়ার্ড তৈরি করা হয়নি। আপনি যদি পূর্বে গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" দিয়ে লগইন করুন, অথবা নিচে "পাসওয়ার্ড সেট / রিসেট করুন" বাটনে চাপুন।';
+    if (code.includes('email-already-in-use') || msg.includes('email-already-in-use')) {
+      return `এই ইমেইলটিতে (${authEmail}) ইতিমধ্যে একটি অ্যাকাউন্ট তৈরি করা আছে! নিচে "Already registered? Sign In" মোড অন করা হয়েছে। অনুগ্রহ করে পাসওয়ার্ড দিয়ে সাইন-ইন করুন অথবা "Continue with Google" ব্যবহার করুন।`;
     }
-    if (code === 'auth/user-not-found') {
+    if (
+      code.includes('invalid-credential') ||
+      code.includes('wrong-password') ||
+      msg.includes('invalid-credential') ||
+      msg.includes('wrong-password')
+    ) {
+      return 'ভুল পাসওয়ার্ড অথবা এই ইমেইলে এখনো পাসওয়ার্ড সেট করা হয়নি। আপনি যদি পূর্বে গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" দিয়ে লগইন করুন অথবা নিচে "পাসওয়ার্ড সেট / রিসেট করুন" বাটনে চাপুন।';
+    }
+    if (code.includes('user-not-found') || msg.includes('user-not-found')) {
       return 'এই ইমেইলে কোনো পাসওয়ার্ড অ্যাকাউন্ট পাওয়া যায়নি। আপনি যদি গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" বাটনে ক্লিক করুন।';
     }
-    if (code === 'auth/email-already-in-use') {
-      return 'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। "Sign In" নির্বাচন করে সঠিক পাসওয়ার্ড দিন অথবা "Continue with Google" বাটনে ক্লিক করুন।';
-    }
-    if (code === 'auth/network-request-failed') {
-      return 'ইন্টারনেট সংযোগে সমস্যা দেখা দিয়েছে। আপনার মোবাইলের ইন্টারনেট চেক করে আবার চেষ্টা করুন।';
+    if (code.includes('network-request-failed') || msg.includes('network-request-failed')) {
+      return 'ইন্টারনেট সংযোগে সমস্যা দেখা দিয়েছে। আপনার মোবাইলের ইন্টারনেট সংযোগ চেক করে আবার চেষ্টা করুন।';
     }
     return err?.message || 'Authentication failed. Please try again.';
   };
@@ -446,11 +476,19 @@ export default function App() {
     localStorage.setItem('edu_papers', JSON.stringify(updated));
   };
 
-  const handleUpdateWorkspaceBranding = (updates: Partial<Workspace>) => {
-    const updated: Workspace = { ...currentWorkspace, ...updates };
+  const handleUpdateWorkspaceBranding = async (updates: Partial<Workspace>) => {
+    const updated = await saveWorkspaceBranding(updates);
     setCurrentWorkspace(updated);
-    localStorage.setItem('edu_workspace', JSON.stringify(updated));
-    logActivity('UPDATE_BRANDING', 'WORKSPACE', 'Updated institutional branding & watermarks.');
+    setUserProfile((prev) => ({
+      ...prev,
+      institutionName: updated.institutionName,
+      institutionAddress: updated.institutionAddress,
+      logoUrl: updated.logoUrl,
+      watermarkText: updated.watermarkText,
+      watermarkOpacity: updated.watermarkOpacity,
+      defaultLanguage: updated.defaultLanguage || prev.defaultLanguage,
+    }));
+    logActivity('UPDATE_BRANDING', 'WORKSPACE', 'Updated institutional branding & watermarks in Cloud & Local.');
   };
 
   // Google Login (with mobile popup fallback & redirect support)
@@ -526,14 +564,19 @@ export default function App() {
           const res = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
           setCurrentUser(res.user);
         } catch (signUpErr: any) {
-          if (signUpErr?.code === 'auth/email-already-in-use') {
+          const isEmailInUse =
+            signUpErr?.code === 'auth/email-already-in-use' ||
+            signUpErr?.message?.includes('email-already-in-use');
+
+          if (isEmailInUse) {
+            setAuthMode('signin');
             try {
+              // Attempt to sign in directly with the provided password
               const signInRes = await signInWithEmailAndPassword(auth, authEmail, authPassword);
               setCurrentUser(signInRes.user);
             } catch {
-              setAuthMode('signin');
               setAuthError(
-                'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। আপনি যদি পূর্বে গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" দিয়ে লগইন করুন অথবা নিচে "পাসওয়ার্ড সেট / রিসেট করুন" বাটনে চাপুন।'
+                `এই ইমেইলটি (${authEmail}) ইতিমধ্যে নিবন্ধিত আছে। মোডটি পরিবর্তন করে "Sign In" করা হয়েছে। অনুগ্রহ করে আপনার পাসওয়ার্ড দিয়ে লগইন করুন অথবা "Continue with Google" বাটনে চাপুন।`
               );
               return;
             }
@@ -730,10 +773,27 @@ export default function App() {
     setActiveView('create-paper');
   };
 
+  const isUserAdminOrOwner =
+    currentUserRole === 'OWNER' ||
+    currentUserRole === 'ADMIN' ||
+    currentUser?.email === OWNER_EMAIL ||
+    !currentUser; // When testing locally or before sign-in, provide admin access to manage app
+
   const navigationItems = [
     { id: 'library', label: 'Question Bank', labelBn: 'প্রশ্ন ব্যাংক', icon: Library },
     { id: 'create-paper', label: 'Create Question Paper', labelBn: 'প্রশ্নপত্র তৈরি করুন', icon: Layers },
     { id: 'saved-papers', label: 'Saved Question Papers', labelBn: 'সংরক্ষিত প্রশ্নপত্র', icon: FileText },
+    ...(isUserAdminOrOwner
+      ? [
+          {
+            id: 'admin-dashboard',
+            label: 'Admin Dashboard',
+            labelBn: 'অ্যাডমিন ড্যাশবোর্ড',
+            icon: ShieldCheck,
+            badge: pendingSubmissionsCount > 0 ? pendingSubmissionsCount : undefined,
+          },
+        ]
+      : []),
     { id: 'profile', label: 'My Profile', labelBn: 'আমার প্রোফাইল', icon: User },
     { id: 'settings', label: 'Settings', labelBn: 'সেটিংস', icon: Settings },
   ];
@@ -782,6 +842,16 @@ export default function App() {
               <span className={isBangla ? 'text-blue-700 font-black' : 'text-slate-400'}>বাং</span>
               <span className="text-slate-300">/</span>
               <span className={!isBangla ? 'text-blue-700 font-black' : 'text-slate-400'}>EN</span>
+            </button>
+
+            {/* Public Upload Question Button (Available for all visitors & Vercel users) */}
+            <button
+              onClick={() => setSubmitQuestionModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-emerald-600/20"
+              title="নতুন প্রশ্ন আপলোড করুন (এডমিনকে নোটিফাই করা হবে)"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
             </button>
 
             <button
@@ -852,6 +922,7 @@ export default function App() {
             {navigationItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
+              const badge = (item as any).badge;
 
               return (
                 <button
@@ -867,6 +938,15 @@ export default function App() {
                   <span className="flex-1 text-left truncate">
                     {isBangla ? item.labelBn : item.label}
                   </span>
+                  {badge !== undefined && badge > 0 && (
+                    <span
+                      className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                        isActive ? 'bg-white text-blue-700' : 'bg-amber-500 text-white shadow-xs'
+                      }`}
+                    >
+                      {badge}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -901,6 +981,7 @@ export default function App() {
                   {navigationItems.map((item) => {
                     const Icon = item.icon;
                     const isActive = activeView === item.id;
+                    const badge = (item as any).badge;
                     return (
                       <button
                         key={item.id}
@@ -915,7 +996,16 @@ export default function App() {
                         }`}
                       >
                         <Icon className="w-4 h-4" />
-                        <span>{isBangla ? item.labelBn : item.label}</span>
+                        <span className="flex-1 text-left">{isBangla ? item.labelBn : item.label}</span>
+                        {badge !== undefined && badge > 0 && (
+                          <span
+                            className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                              isActive ? 'bg-white text-blue-700' : 'bg-amber-500 text-white'
+                            }`}
+                          >
+                            {badge}
+                          </span>
+                        )}
                       </button>
                     );
                   })}
@@ -1139,6 +1229,57 @@ export default function App() {
             </div>
           )}
 
+          {activeView === 'admin-dashboard' && (
+            <AdminDashboardView
+              allQuestions={questions}
+              allPapers={papers}
+              workspace={currentWorkspace}
+              dynamicClasses={dynamicClasses}
+              dynamicSubjects={dynamicSubjects}
+              examPresets={examPresets}
+              isBangla={isBangla}
+              onQuestionApproved={(q) => {
+                handleAddQuestionToLibrary(q);
+                loadSubmittedQuestions().then((list) => {
+                  setPendingSubmissionsCount(list.filter((s) => s.status === 'PENDING').length);
+                });
+              }}
+              onUpdateWorkspace={async (ws) => {
+                await handleUpdateWorkspaceBranding(ws);
+              }}
+              onSaveClass={async (cls) => {
+                await saveDynamicClass(cls);
+                setDynamicClasses((prev) => {
+                  const exists = prev.some((c) => c.id === cls.id);
+                  return exists ? prev.map((c) => (c.id === cls.id ? cls : c)) : [...prev, cls];
+                });
+              }}
+              onDeleteClass={async (id) => {
+                await deleteDynamicClass(id);
+                setDynamicClasses((prev) => prev.filter((c) => c.id !== id));
+              }}
+              onSaveSubject={async (sub) => {
+                await saveDynamicSubject(sub);
+                setDynamicSubjects((prev) => {
+                  const exists = prev.some((s) => s.id === sub.id);
+                  return exists ? prev.map((s) => (s.id === sub.id ? sub : s)) : [...prev, sub];
+                });
+              }}
+              onDeleteSubject={async (id) => {
+                await deleteDynamicSubject(id);
+                setDynamicSubjects((prev) => prev.filter((s) => s.id !== id));
+              }}
+              onSaveExamPreset={async (ex) => {
+                await saveExamPreset(ex);
+                setExamPresets((prev) => [...prev, ex]);
+              }}
+              onDeleteExamPreset={async (id) => {
+                await deleteExamPreset(id);
+                setExamPresets((prev) => prev.filter((e) => e.id !== id));
+              }}
+            />
+          )}
+
           {activeView === 'profile' && (
             <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs max-w-2xl space-y-6">
               <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
@@ -1191,9 +1332,16 @@ export default function App() {
             <div className="space-y-8">
               <SettingsView
                 userProfile={userProfile}
-                onUpdateProfile={(p) => {
+                onUpdateProfile={async (p) => {
                   setUserProfile(p);
-                  localStorage.setItem('edu_profile', JSON.stringify(p));
+                  await handleUpdateWorkspaceBranding({
+                    institutionName: p.institutionName,
+                    institutionAddress: p.institutionAddress,
+                    logoUrl: p.logoUrl,
+                    watermarkText: p.watermarkText,
+                    watermarkOpacity: p.watermarkOpacity,
+                    defaultLanguage: p.defaultLanguage,
+                  });
                 }}
                 allQuestions={questions}
                 allPapers={papers}
@@ -1294,7 +1442,41 @@ export default function App() {
               {authError && (
                 <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2 leading-relaxed">
                   <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
-                  <div className="flex-1">{authError}</div>
+                  <div className="flex-1 space-y-2">
+                    <div>{authError}</div>
+                    {authError.includes('unauthorized-domain') && (
+                      <div className="pt-2 border-t border-rose-200 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (typeof window !== 'undefined') {
+                              navigator.clipboard.writeText(window.location.hostname);
+                              setResetSuccess(`ডোমেইন কপি হয়েছে: ${window.location.hostname} (Firebase Console -> Authorized Domains এ পেস্ট করুন)`);
+                            }
+                          }}
+                          className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-bold flex items-center gap-1"
+                        >
+                          📋 ডোমেইন কপি করুন ({typeof window !== 'undefined' ? window.location.hostname : ''})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            // Temporary offline admin bypass for testing on preview domain
+                            setCurrentUser({
+                              uid: 'owner-jahidul',
+                              email: OWNER_EMAIL,
+                              displayName: 'Md. Jahidul Islam (Admin)',
+                            } as any);
+                            setShowAuthModal(false);
+                            setAuthError(null);
+                          }}
+                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-bold"
+                        >
+                          🛡️ অফলাইন এডমিন হিসেবে প্রবেশ করুন (Bypass)
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -1429,6 +1611,15 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* Public Submit Question Modal (For visitors & users on Vercel) */}
+      <SubmitQuestionModal
+        isOpen={submitQuestionModalOpen}
+        onClose={() => setSubmitQuestionModalOpen(false)}
+        dynamicClasses={dynamicClasses}
+        dynamicSubjects={dynamicSubjects}
+        isBangla={isBangla}
+      />
     </div>
   );
 }

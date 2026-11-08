@@ -8,7 +8,7 @@ export type QuestionType = 'MCQ' | 'SQ' | 'CQ';
 
 export type Difficulty = 'Easy' | 'Medium' | 'Hard';
 
-export type SourceMode = 'NCTB_TEXTBOOK' | 'BOARD_EXAM' | 'NCTB_BOARD_PATTERN' | 'ORIGINAL_AI';
+export type SourceMode = 'NCTB_TEXTBOOK' | 'BOARD_EXAM' | 'NCTB_BOARD_PATTERN' | 'ORIGINAL_AI' | 'COMMUNITY';
 
 export type LanguageOption = 'Bangla' | 'English' | 'Bilingual';
 
@@ -81,6 +81,8 @@ export interface Question {
   diagramCaption?: string;
   isFavorite?: boolean;
   tags?: string[];
+  verifiedBy?: string;
+  verifiedAt?: string;
   createdAt: string;
   updatedAt?: string;
 }
@@ -191,7 +193,7 @@ export interface Workspace {
   watermarkPosition?: 'center' | 'diagonal';
   headerAlignment?: 'center' | 'left' | 'dual';
   fontChoice?: 'bangla-modern' | 'bangla-serif' | 'english';
-  defaultLanguage?: 'Bangla' | 'English';
+  defaultLanguage?: LanguageOption;
   createdAt: string;
   updatedAt: string;
 }
@@ -248,6 +250,46 @@ export interface ActivityLogRecord {
   entityType: string;
   entityId?: string;
   details: string;
+  createdAt: string;
+}
+
+export interface SubmittedQuestion {
+  id: string;
+  submitterName: string;
+  submitterEmail?: string;
+  submitterPhone?: string;
+  classLevel: string;
+  subject: string;
+  chapter?: string;
+  questionType: QuestionType;
+  questionText: string;
+  stimulus?: string;
+  options?: string[];
+  correctAnswer?: string;
+  cqParts?: {
+    partA: { question: string; marks: number; answer?: string };
+    partB: { question: string; marks: number; answer?: string };
+    partC: { question: string; marks: number; answer?: string };
+    partD: { question: string; marks: number; answer?: string };
+  };
+  explanation?: string;
+  marks: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  adminNotes?: string;
+  notifiedAdminEmail?: string;
+  createdAt: string;
+  reviewedAt?: string;
+  reviewedBy?: string;
+}
+
+export interface AdminNotification {
+  id: string;
+  type: 'QUESTION_SUBMITTED' | 'BRANDING_UPDATED' | 'PAPER_CREATED';
+  title: string;
+  message: string;
+  recipientEmail: string;
+  data?: any;
+  isRead: boolean;
   createdAt: string;
 }
 
