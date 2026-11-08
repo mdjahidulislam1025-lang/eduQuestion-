@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Question,
   QuestionPaper,
@@ -40,6 +40,9 @@ import {
 } from './lib/firebase';
 import {
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  sendPasswordResetEmail,
   GoogleAuthProvider,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -75,7 +78,11 @@ import {
   Trash2,
   Eye,
   Edit3,
-  BookOpen
+  BookOpen,
+  AlertTriangle,
+  KeyRound,
+  CheckCircle2,
+  ExternalLink
 } from 'lucide-react';
 
 const OWNER_EMAIL = 'mdjahidulislam1025@gmail.com';
@@ -85,9 +92,10 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
 
   // Email / Password form states
-  const [authEmail, setAuthEmail] = useState('');
+  const [authEmail, setAuthEmail] = useState(OWNER_EMAIL);
   const [authPassword, setAuthPassword] = useState('');
   const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
 
@@ -361,6 +369,21 @@ export default function App() {
       localStorage.setItem('edu_papers', JSON.stringify([initialPaper]));
     }
 
+    // Handle redirect result if user returned from Google redirect sign-in (mobile browsers)
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result && result.user) {
+          setCurrentUser(result.user);
+          setShowAuthModal(false);
+          setAuthLoading(false);
+          logActivity('USER_LOGIN', 'AUTH', `User ${result.user.email} signed in via Google redirect.`);
+        }
+      })
+      .catch((err) => {
+        console.warn('Redirect sign-in error:', err);
+        setAuthError(formatAuthError(err));
+      });
+
     // Auth listener
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -372,6 +395,45 @@ export default function App() {
 
     return () => unsubscribe();
   }, []);
+
+  // In-app browser detection (Facebook/Messenger/Instagram/WhatsApp webview)
+  const isInAppBrowser = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    const ua = navigator.userAgent || navigator.vendor || (window as any).opera || '';
+    return /FBAN|FBAV|Instagram|Line|Twitter|MicroMessenger|musical_ly/i.test(ua);
+  }, []);
+
+  // Format auth errors with Bengali explanations and exact domain guidance
+  const formatAuthError = (err: any): string => {
+    const code = err?.code || '';
+    const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+
+    if (code === 'auth/unauthorized-domain') {
+      return `ডোমেইন অনুমোদিত নয় (auth/unauthorized-domain): আপনি বর্তমানে "${currentHost}" ডোমেইন থেকে সাইটটি ওপেন করেছেন। এই ডোমেইনটি এখনো Firebase-এ যুক্ত করা হয়নি। অনুগ্রহ করে Firebase Console (Project: kinetic-campus-9qk4z) -> Authentication -> Settings -> Authorized Domains-এ গিয়ে "${currentHost}" যুক্ত করুন।`;
+    }
+    if (code === 'auth/popup-blocked') {
+      return 'মোবাইল ব্রাউজারে পপ-আপ উইন্ডো ব্লক করা হয়েছে। দয়া করে নিচের "মোবাইলে Redirect দিয়ে লগইন" বাটনে চাপুন অথবা ব্রাউজারের পপ-আপ চালু করুন।';
+    }
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      return 'গুগল সাইন-ইন উইন্ডোটি সম্পূর্ণ হওয়ার আগেই বন্ধ করা হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।';
+    }
+    if (code === 'auth/disallowed_useragent') {
+      return 'এই ব্রাউজারটি (যেমন Messenger বা Facebook WebView) গুগল লগইন সাপোর্ট করে না। দয়া করে উপরে ডানদিকের তিনটি ডটে (⋮) ক্লিক করে "Open in Chrome" বা "Open in Safari" দিয়ে ওপেন করুন।';
+    }
+    if (code === 'auth/invalid-credential' || code === 'auth/wrong-password') {
+      return 'ভুল পাসওয়ার্ড অথবা এই ইমেইলটিতে এখনো পাসওয়ার্ড তৈরি করা হয়নি। আপনি যদি পূর্বে গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" দিয়ে লগইন করুন, অথবা নিচে "পাসওয়ার্ড সেট / রিসেট করুন" বাটনে চাপুন।';
+    }
+    if (code === 'auth/user-not-found') {
+      return 'এই ইমেইলে কোনো পাসওয়ার্ড অ্যাকাউন্ট পাওয়া যায়নি। আপনি যদি গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" বাটনে ক্লিক করুন।';
+    }
+    if (code === 'auth/email-already-in-use') {
+      return 'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। "Sign In" নির্বাচন করে সঠিক পাসওয়ার্ড দিন অথবা "Continue with Google" বাটনে ক্লিক করুন।';
+    }
+    if (code === 'auth/network-request-failed') {
+      return 'ইন্টারনেট সংযোগে সমস্যা দেখা দিয়েছে। আপনার মোবাইলের ইন্টারনেট চেক করে আবার চেষ্টা করুন।';
+    }
+    return err?.message || 'Authentication failed. Please try again.';
+  };
 
   // Save changes helper
   const handleSaveQuestions = (updated: Question[]) => {
@@ -391,16 +453,61 @@ export default function App() {
     logActivity('UPDATE_BRANDING', 'WORKSPACE', 'Updated institutional branding & watermarks.');
   };
 
-  // Google Login
-  const handleGoogleSignIn = async () => {
+  // Google Login (with mobile popup fallback & redirect support)
+  const handleGoogleSignIn = async (useRedirect = false) => {
     setAuthError(null);
+    setResetSuccess(null);
+    setAuthLoading(true);
     try {
       const provider = new GoogleAuthProvider();
-      const result = await signInWithPopup(auth, provider);
-      setCurrentUser(result.user);
-      setShowAuthModal(false);
+      provider.setCustomParameters({ prompt: 'select_account' });
+
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+      // If user chooses redirect, or is inside in-app browser on mobile
+      if (useRedirect || (isMobile && isInAppBrowser)) {
+        await signInWithRedirect(auth, provider);
+        return;
+      }
+
+      try {
+        const result = await signInWithPopup(auth, provider);
+        setCurrentUser(result.user);
+        setShowAuthModal(false);
+      } catch (popupErr: any) {
+        if (
+          popupErr.code === 'auth/popup-blocked' ||
+          popupErr.code === 'auth/cancelled-popup-request'
+        ) {
+          // Automatic fallback to redirect for mobile devices where popup was blocked
+          await signInWithRedirect(auth, provider);
+          return;
+        }
+        throw popupErr;
+      }
     } catch (err: any) {
-      setAuthError(err.message || 'Google Sign-In failed');
+      setAuthError(formatAuthError(err));
+    } finally {
+      setAuthLoading(false);
+    }
+  };
+
+  // Send Password Reset / Setup Email
+  const handleSendPasswordReset = async () => {
+    if (!authEmail.trim()) {
+      setAuthError('পাসওয়ার্ড সেট বা রিসেট লিংক পেতে অনুগ্রহ করে Email ঘরে আপনার ইমেইলটি লিখুন।');
+      return;
+    }
+    setAuthLoading(true);
+    setAuthError(null);
+    setResetSuccess(null);
+    try {
+      await sendPasswordResetEmail(auth, authEmail.trim());
+      setResetSuccess(`আপনার (${authEmail.trim()}) ইমেইলে একটি পাসওয়ার্ড সেট/রিসেট লিংক পাঠানো হয়েছে! ইনবক্স চেক করে পাসওয়ার্ড সেট করে নিন।`);
+    } catch (err: any) {
+      setAuthError(formatAuthError(err));
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -408,6 +515,8 @@ export default function App() {
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
     setAuthError(null);
+    setResetSuccess(null);
+    setAuthLoading(true);
     try {
       if (authMode === 'signin') {
         const res = await signInWithEmailAndPassword(auth, authEmail, authPassword);
@@ -424,7 +533,7 @@ export default function App() {
             } catch {
               setAuthMode('signin');
               setAuthError(
-                'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। অনুগ্রহ করে "Continue with Google" অথবা সঠিক পাসওয়ার্ড দিয়ে "Sign In" করুন।'
+                'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত আছে। আপনি যদি পূর্বে গুগল দিয়ে অ্যাকাউন্ট খুলে থাকেন, তবে "Continue with Google" দিয়ে লগইন করুন অথবা নিচে "পাসওয়ার্ড সেট / রিসেট করুন" বাটনে চাপুন।'
               );
               return;
             }
@@ -434,10 +543,11 @@ export default function App() {
         }
       }
       setShowAuthModal(false);
-      setAuthEmail('');
       setAuthPassword('');
     } catch (err: any) {
-      setAuthError(err.message || 'Authentication failed');
+      setAuthError(formatAuthError(err));
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -1170,41 +1280,75 @@ export default function App() {
             </div>
 
             <div className="p-6 space-y-4">
-              {authError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl">
-                  {authError}
+              {/* In-app browser warning banner */}
+              {isInAppBrowser && (
+                <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-start gap-2">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-600 mt-0.5" />
+                  <div>
+                    <strong>সতর্কতা:</strong> আপনি ফেসবুক/মেসেঞ্জারের ইন-অ্যাপ ব্রাউজারে আছেন। গুগল লগইন সম্পন্ন করতে উপরে (⋮) চাপ দিয়ে <strong>"Open in Chrome"</strong> বা <strong>"Open in Safari"</strong> নির্বাচন করে সাইটটি খুলুন।
+                  </div>
                 </div>
               )}
 
-              {/* Google Sign In */}
-              <button
-                onClick={handleGoogleSignIn}
-                className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
-              >
-                <svg className="w-4 h-4" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
-                  />
-                </svg>
-                Continue with Google
-              </button>
+              {/* Error Box */}
+              {authError && (
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-start gap-2 leading-relaxed">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-rose-600 mt-0.5" />
+                  <div className="flex-1">{authError}</div>
+                </div>
+              )}
+
+              {/* Success Box */}
+              {resetSuccess && (
+                <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-xl flex items-start gap-2 leading-relaxed">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 mt-0.5" />
+                  <div className="flex-1">{resetSuccess}</div>
+                </div>
+              )}
+
+              {/* Google Sign In Options */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  disabled={authLoading}
+                  onClick={() => handleGoogleSignIn(false)}
+                  className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors disabled:opacity-50"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <path
+                      fill="#4285F4"
+                      d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    />
+                    <path
+                      fill="#34A853"
+                      d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    />
+                    <path
+                      fill="#FBBC05"
+                      d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"
+                    />
+                    <path
+                      fill="#EA4335"
+                      d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
+                    />
+                  </svg>
+                  {authLoading ? 'Signing in...' : 'Continue with Google'}
+                </button>
+
+                {/* Mobile Direct Redirect Fallback Button */}
+                <button
+                  type="button"
+                  disabled={authLoading}
+                  onClick={() => handleGoogleSignIn(true)}
+                  className="w-full text-center text-[11px] text-blue-600 hover:text-blue-800 font-semibold py-1 hover:underline flex items-center justify-center gap-1"
+                >
+                  <ExternalLink className="w-3 h-3" /> মোবাইলে পপ-আপ না খুললে: Redirect দিয়ে লগইন করুন
+                </button>
+              </div>
 
               <div className="flex items-center gap-3 my-2">
                 <div className="flex-1 h-px bg-slate-200"></div>
-                <span className="text-[11px] text-slate-400 font-semibold uppercase">or email</span>
+                <span className="text-[11px] text-slate-400 font-semibold uppercase">অথবা ইমেইল ও পাসওয়ার্ড</span>
                 <div className="flex-1 h-px bg-slate-200"></div>
               </div>
 
@@ -1218,12 +1362,22 @@ export default function App() {
                     value={authEmail}
                     onChange={(e) => setAuthEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500"
+                    className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Password:</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-bold text-slate-700">Password:</label>
+                    <button
+                      type="button"
+                      onClick={handleSendPasswordReset}
+                      className="text-[11px] font-bold text-blue-600 hover:text-blue-800 hover:underline flex items-center gap-1"
+                      title="Send Password Reset/Setup link to your email"
+                    >
+                      <KeyRound className="w-3 h-3" /> পাসওয়ার্ড সেট / রিসেট করুন
+                    </button>
+                  </div>
                   <input
                     type="password"
                     required
@@ -1236,22 +1390,31 @@ export default function App() {
 
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors"
+                  disabled={authLoading}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-xs transition-colors disabled:opacity-50"
                 >
-                  {authMode === 'signin' ? 'Sign In' : 'Create Account'}
+                  {authLoading ? 'অনুগ্রহ করে অপেক্ষা করুন...' : authMode === 'signin' ? 'Sign In' : 'Create Account'}
                 </button>
               </form>
 
-              <div className="text-center pt-2">
+              <div className="text-center pt-1 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setAuthMode(authMode === 'signin' ? 'signup' : 'signin')}
-                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => {
+                    setAuthMode(authMode === 'signin' ? 'signup' : 'signin');
+                    setAuthError(null);
+                    setResetSuccess(null);
+                  }}
+                  className="text-xs text-blue-600 hover:underline font-semibold"
                 >
                   {authMode === 'signin'
-                    ? "Don't have an account? Sign Up"
-                    : 'Already registered? Sign In'}
+                    ? "নতুন একাউন্ট? Create Account"
+                    : 'ইতিমধ্যে একাউন্ট আছে? Sign In'}
                 </button>
+              </div>
+
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-[11px] text-slate-500 leading-relaxed">
+                <strong>মোবাইল ইউজারদের জন্য পরামর্শ:</strong> গুগল লগইনে সমস্যা হলে উপরে <em>"পাসওয়ার্ড সেট / রিসেট করুন"</em> বাটনে চাপ দিন। আপনার জিমেইল ইনবক্সে পাসওয়ার্ড বানানোর লিংক চলে যাবে। একবার পাসওয়ার্ড বানিয়ে নিলে যেকোনো মোবাইল থেকে খুব সহজে Email ও Password দিয়ে সরাসরি লগইন করতে পারবেন।
               </div>
             </div>
 
