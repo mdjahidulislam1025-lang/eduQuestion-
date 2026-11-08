@@ -65,10 +65,14 @@ export function injectPrintStyles(doc: Document): void {
       background: white;
       position: relative;
     }
+    .section-block, .section-container, .page-break-inside-avoid {
+      break-inside: auto !important;
+      page-break-inside: auto !important;
+    }
     .cq-block, .mcq-block, .sq-block {
-      break-inside: avoid !important;
-      page-break-inside: avoid !important;
-      margin-bottom: 12pt;
+      break-inside: avoid;
+      page-break-inside: avoid;
+      margin-bottom: 10pt;
     }
     .stimulus-box {
       border-left: 2pt solid #0f172a;
@@ -249,7 +253,7 @@ export function printExamPaperIsolated(elementId: string): void {
         <style>
           @page {
             size: A4 portrait;
-            margin: 12mm 15mm 15mm 15mm;
+            margin: 10mm 14mm 14mm 14mm;
           }
           *, *::before, *::after {
             box-sizing: border-box;
@@ -263,15 +267,31 @@ export function printExamPaperIsolated(elementId: string): void {
             color: #0f172a !important;
             font-family: 'Noto Serif Bengali', 'Hind Siliguri', serif;
             font-size: 10.5pt;
-            line-height: 1.5;
+            line-height: 1.45;
           }
           .no-print {
             display: none !important;
           }
+          #printable-exam-paper, #editor-printable-preview, #easy-printable-paper, .exam-page, .print-container {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-height: 0 !important;
+            height: auto !important;
+            overflow: visible !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          /* Sections must allow page breaks so questions start immediately below header on Page 1 */
+          .section-block, .section-container, .page-break-inside-avoid {
+            break-inside: auto;
+            page-break-inside: auto;
+          }
           .cq-block, .mcq-block, .sq-block {
-            break-inside: avoid !important;
-            page-break-inside: avoid !important;
-            margin-bottom: 12pt;
+            break-inside: avoid;
+            page-break-inside: avoid;
+            margin-bottom: 10pt;
           }
           .page-break {
             break-before: page;
@@ -281,7 +301,7 @@ export function printExamPaperIsolated(elementId: string): void {
             font-size: 1.05em !important;
           }
           .katex-display {
-            margin: 0.3em 0 !important;
+            margin: 0.25em 0 !important;
             overflow: visible !important;
           }
         </style>

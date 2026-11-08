@@ -15,6 +15,7 @@ import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
 import { QuestionSelectorModal } from './QuestionSelectorModal';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
+import { organizeQuestionsIntoSections } from '../services/sectionOrganizer';
 import {
   Zap,
   Sparkles,
@@ -546,15 +547,7 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
       watermarkText: workspace.watermarkText || 'EduQuestion AI',
       watermarkOpacity: workspace.watermarkOpacity || 0.08,
       watermarkPosition: workspace.watermarkPosition || 'diagonal',
-      sections: [
-        {
-          id: `sec-easy-${Date.now()}`,
-          titleBn: 'ক-বিভাগ: মূল পরীক্ষা প্রশ্নাবলী',
-          titleEn: 'Section A: Examination Questions',
-          instructions: `মোট প্রশ্ন: ${activeQList.length}টি | পূর্ণমান: ${totalMarks}`,
-          questions: activeQList,
-        },
-      ],
+      sections: organizeQuestionsIntoSections(activeQList),
       createdAt: new Date().toISOString(),
     };
 

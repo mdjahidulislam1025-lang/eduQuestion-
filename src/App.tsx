@@ -51,6 +51,10 @@ import {
   User as FirebaseUser
 } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import {
+  organizeQuestionsIntoSections,
+  addQuestionsToPaperSections,
+} from './services/sectionOrganizer';
 
 // Views
 import { QuestionLibraryView } from './components/QuestionLibraryView';
@@ -663,58 +667,55 @@ export default function App() {
   };
 
   const handleAddQuestionToActivePaper = (q: Question) => {
+    handleBulkAddQuestionsToActivePaper([q]);
+  };
+
+  const handleBulkAddQuestionsToActivePaper = (newQs: Question[]) => {
+    if (!newQs || newQs.length === 0) return;
+
     if (!currentEditingPaper) {
+      const initialSections = organizeQuestionsIntoSections(newQs);
+      const totalMarks = newQs.reduce((sum, item) => sum + (Number(item.marks) || 0), 0);
+      const primarySubject = newQs[0]?.subject || 'Physics';
+      const primaryClass = newQs[0]?.classLevel || 'SSC';
+
       const newPaper: QuestionPaper = {
         id: `paper-${Date.now()}`,
         ownerId: currentUser?.uid || 'owner',
-        title: `${q.subject} Examination Paper`,
-        institutionName: currentWorkspace.institutionName,
+        title: `${primarySubject} পরীক্ষা পত্র ২০২৬`,
+        institutionName: currentWorkspace.institutionName || 'বাংলাদেশ মাধ্যমিক ও উচ্চ মাধ্যমিক শিক্ষা বোর্ড',
         institutionAddress: currentWorkspace.institutionAddress,
-        classLevel: q.classLevel,
-        subject: q.subject,
+        classLevel: primaryClass,
+        subject: primarySubject,
         subjectCode: '100',
-        totalMarks: q.marks,
+        totalMarks: totalMarks,
         duration: '২ ঘণ্টা ৩০ মিনিট',
-        instructions: ['১. ডান পাশের সংখ্যা প্রশ্নের পূর্ণমান নির্দেশক।'],
+        instructions: ['১. ডান পাশের সংখ্যা প্রশ্নের পূর্ণমান নির্দেশক।', '২. প্রতিটি বিভাগের নির্দেশনা অনুযায়ী উত্তর দাও।'],
         watermarkText: currentWorkspace.watermarkText,
         watermarkOpacity: currentWorkspace.watermarkOpacity,
-        sections: [
-          {
-            id: 'sec-1',
-            titleBn: 'ক-বিভাগ: মূল প্রশ্নসমূহ',
-            titleEn: 'Section A',
-            instructions: 'সকল প্রশ্নের উত্তর দাও।',
-            questions: [q],
-          },
-        ],
+        sections: initialSections,
         createdAt: new Date().toISOString(),
       };
       setCurrentEditingPaper(newPaper);
       handleSavePapers([newPaper, ...papers]);
+      logActivity('ADD_TO_PAPER', 'PAPER', `Created paper with ${newQs.length} questions organized into separate sections.`);
       return;
     }
 
-    const updatedSections = [...currentEditingPaper.sections];
-    if (updatedSections.length === 0) {
-      updatedSections.push({
-        id: `sec-${Date.now()}`,
-        titleBn: 'ক-বিভাগ: সৃজনশীল/বহুনির্বাচনী প্রশ্ন',
-        titleEn: 'Section A',
-        instructions: 'উত্তর দাও',
-        questions: [q],
-      });
-    } else {
-      updatedSections[0].questions.push(q);
-    }
+    const updatedSections = addQuestionsToPaperSections(currentEditingPaper.sections, newQs);
+    const allQuestions = updatedSections.flatMap((s) => s.questions || []);
+    const calculatedTotalMarks = allQuestions.reduce((sum, item) => sum + (Number(item.marks) || 0), 0);
 
-    const updatedPaper = {
+    const updatedPaper: QuestionPaper = {
       ...currentEditingPaper,
       sections: updatedSections,
+      totalMarks: calculatedTotalMarks,
       updatedAt: new Date().toISOString(),
     };
+
     setCurrentEditingPaper(updatedPaper);
     handleSavePapers(papers.map((p) => (p.id === updatedPaper.id ? updatedPaper : p)));
-    logActivity('ADD_TO_PAPER', 'PAPER', `Added question to paper ${currentEditingPaper.title}.`);
+    logActivity('ADD_TO_PAPER', 'PAPER', `Added ${newQs.length} questions into distinct sections for ${currentEditingPaper.title}.`);
   };
 
   const handleSaveActivePaper = async (paper: QuestionPaper) => {
@@ -1049,7 +1050,7 @@ export default function App() {
                 setActiveView('create-paper');
               }}
               onBulkAddToPaper={(selected) => {
-                selected.forEach((q) => handleAddQuestionToActivePaper(q));
+                handleBulkAddQuestionsToActivePaper(selected);
                 setActiveView('create-paper');
               }}
             />

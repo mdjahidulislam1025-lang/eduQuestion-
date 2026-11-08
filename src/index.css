@@ -40,9 +40,16 @@
     display: block !important;
   }
 
-  .exam-page {
+  #printable-exam-paper,
+  #editor-printable-preview,
+  #easy-printable-paper,
+  .exam-page,
+  .print-container {
     width: 100% !important;
     max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
     padding: 0 !important;
     margin: 0 !important;
     box-shadow: none !important;
@@ -51,7 +58,7 @@
 
   @page {
     size: A4 portrait;
-    margin: 1.5cm 1.5cm 1.8cm 1.5cm;
+    margin: 1.2cm 1.5cm 1.5cm 1.5cm;
   }
 
   .page-break-after {
@@ -59,9 +66,20 @@
     break-after: page;
   }
 
+  /* Section wrappers must NOT avoid breaks so questions flow immediately under header */
+  .section-block,
+  .section-container {
+    page-break-inside: auto !important;
+    break-inside: auto !important;
+  }
+
+  .cq-block,
+  .mcq-block,
+  .sq-block,
   .page-break-inside-avoid {
     page-break-inside: avoid;
     break-inside: avoid;
+    margin-bottom: 8pt;
   }
 }
 

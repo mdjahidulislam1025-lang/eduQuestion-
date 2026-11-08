@@ -12,6 +12,10 @@ import {
 import { MathRenderer } from './MathRenderer';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
 import {
+  organizeQuestionsIntoSections,
+  addQuestionsToPaperSections,
+} from '../services/sectionOrganizer';
+import {
   CheckSquare,
   Square,
   Plus,
@@ -306,23 +310,21 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
 
     const existingIds = new Set(paperQuestions.map((q) => q.id));
     const newQuestions = selectedToAdd.filter((q) => !existingIds.has(q.id));
+    if (newQuestions.length === 0) {
+      setCheckedIds(new Set());
+      setStep('editor');
+      return;
+    }
 
-    const updatedQuestions = [...paperQuestions, ...newQuestions];
-    const newTotalMarks = updatedQuestions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
-
-    const updatedSection: PaperSection = {
-      id: currentPaper.sections[0]?.id || 'sec-1',
-      titleBn: currentPaper.sections[0]?.titleBn || 'প্রশ্নসমূহ',
-      titleEn: currentPaper.sections[0]?.titleEn || 'Questions',
-      instructions: currentPaper.sections[0]?.instructions || 'সকল প্রশ্নের উত্তর দাও।',
-      questions: updatedQuestions,
-    };
+    const updatedSections = addQuestionsToPaperSections(currentPaper.sections, newQuestions);
+    const allQs = updatedSections.flatMap((s) => s.questions || []);
+    const newTotalMarks = allQs.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
 
     setCurrentPaper((prev) => ({
       ...prev,
       subject: selectedSubject !== 'ALL' ? selectedSubject : prev.subject,
       totalMarks: newTotalMarks,
-      sections: [updatedSection],
+      sections: updatedSections,
       updatedAt: new Date().toISOString(),
     }));
 
@@ -331,19 +333,12 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
   };
 
   const updatePaperQuestions = (updatedQuestions: Question[]) => {
+    const newSections = organizeQuestionsIntoSections(updatedQuestions);
     const newTotalMarks = updatedQuestions.reduce((sum, q) => sum + (Number(q.marks) || 0), 0);
     setCurrentPaper((prev) => ({
       ...prev,
       totalMarks: newTotalMarks,
-      sections: [
-        {
-          id: prev.sections[0]?.id || 'sec-1',
-          titleBn: prev.sections[0]?.titleBn || 'প্রশ্নসমূহ',
-          titleEn: prev.sections[0]?.titleEn || 'Questions',
-          instructions: prev.sections[0]?.instructions || 'সকল প্রশ্নের উত্তর দাও।',
-          questions: updatedQuestions,
-        },
-      ],
+      sections: newSections,
       updatedAt: new Date().toISOString(),
     }));
   };
@@ -358,7 +353,8 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
   };
 
   const handleRemoveQuestion = (id: string) => {
-    updatePaperQuestions(paperQuestions.filter((q) => q.id !== id));
+    const remaining = paperQuestions.filter((q) => q.id !== id);
+    updatePaperQuestions(remaining);
   };
 
   const startEditQuestion = (q: Question) => {
@@ -1103,123 +1099,154 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                {paperQuestions.map((q, idx) => {
-                  const isEditing = editingQId === q.id;
+              <div className="space-y-6">
+                {currentPaper.sections.map((section, sIdx) => {
+                  const sectionMarks = section.questions.reduce((sum, item) => sum + (Number(item.marks) || 0), 0);
                   return (
-                    <div
-                      key={q.id}
-                      className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4"
-                    >
-                      <div className="flex-1 min-w-0 space-y-2">
-                        <div className="flex items-center gap-2 text-xs">
-                          <span className="font-black text-blue-700">#{idx + 1}</span>
-                          <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">
-                            {q.questionType}
+                    <div key={section.id || sIdx} className="space-y-3">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50/60 p-3 rounded-2xl border border-blue-200/80 flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-7 h-7 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                            {['ক', 'খ', 'গ', 'ঘ', 'ঙ'][sIdx] || sIdx + 1}
                           </span>
-                          <span className="text-slate-500 font-semibold">
-                            {isBangla ? `মান: ${q.marks}` : `Marks: ${q.marks}`}
-                          </span>
-                        </div>
-
-                        {isEditing ? (
-                          <div className="space-y-2">
-                            <textarea
-                              rows={3}
-                              value={editText}
-                              onChange={(e) => setEditText(e.target.value)}
-                              className="w-full p-2.5 rounded-xl border border-blue-300 text-xs sm:text-sm font-bangla bg-white"
-                            />
-                            <div className="flex items-center gap-3">
-                              <label className="text-xs font-bold text-slate-700">
-                                {isBangla ? 'মান (Marks):' : 'Marks:'}
-                              </label>
-                              <input
-                                type="number"
-                                value={editMarks}
-                                onChange={(e) => setEditMarks(Number(e.target.value))}
-                                className="w-20 px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-white"
-                              />
-                              <button
-                                onClick={() => saveEditQuestion(q)}
-                                className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"
-                              >
-                                <Check className="w-3.5 h-3.5" /> Save
-                              </button>
-                              <button
-                                onClick={() => setEditingQId(null)}
-                                className="px-3 py-1 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
-                              >
-                                Cancel
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-xs sm:text-sm text-slate-800 font-bangla">
-                            {q.questionType === 'CQ' && q.stimulus ? (
-                              <div className="space-y-1">
-                                <div className="p-2 bg-white rounded-lg border-l-2 border-slate-400">
-                                  <MathRenderer content={q.stimulus} />
-                                </div>
-                                {q.cqParts && (
-                                  <div className="pl-2 text-xs text-slate-700 space-y-0.5">
-                                    <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
-                                    <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({q.cqParts.partB.marks})</div>
-                                    <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({q.cqParts.partC.marks})</div>
-                                    <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
-                                  </div>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                <MathRenderer content={q.questionText} />
-                                {q.questionType === 'MCQ' && q.options && (
-                                  <div className="grid grid-cols-2 gap-1 mt-1.5 text-xs text-slate-600">
-                                    {q.options.map((opt, oIdx) => (
-                                      <div key={oIdx}>
-                                        {['ক', 'খ', 'গ', 'ঘ'][oIdx]}. <MathRenderer content={opt} />
-                                      </div>
-                                    ))}
-                                  </div>
-                                )}
-                              </div>
+                          <div>
+                            <h4 className="text-xs sm:text-sm font-bold text-slate-900">
+                              {section.titleBn || section.titleEn}
+                            </h4>
+                            {section.instructions && (
+                              <p className="text-[11px] text-slate-600 italic">
+                                [{section.instructions}]
+                              </p>
                             )}
                           </div>
-                        )}
+                        </div>
+                        <span className="text-[11px] font-bold text-blue-700 bg-white px-2.5 py-1 rounded-xl border border-blue-200 shadow-2xs">
+                          {section.questions.length}টি প্রশ্ন • {sectionMarks} নম্বর
+                        </span>
                       </div>
 
-                      {/* Controls: Up, Down, Edit, Remove */}
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          onClick={() => handleMoveQuestion(idx, 'up')}
-                          disabled={idx === 0}
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-slate-600"
-                          title="Move Up"
-                        >
-                          <MoveUp className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleMoveQuestion(idx, 'down')}
-                          disabled={idx === paperQuestions.length - 1}
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-slate-600"
-                          title="Move Down"
-                        >
-                          <MoveDown className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => startEditQuestion(q)}
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 text-blue-600"
-                          title="Edit Text & Marks"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleRemoveQuestion(q.id)}
-                          className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 text-rose-600"
-                          title="Remove Question"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                      <div className="space-y-3 pl-2 sm:pl-3 border-l-2 border-blue-100">
+                        {section.questions.map((q, qInSecIdx) => {
+                          const globalIdx = paperQuestions.findIndex((item) => item.id === q.id);
+                          const isEditing = editingQId === q.id;
+                          return (
+                            <div
+                              key={q.id}
+                              className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 flex items-start justify-between gap-4"
+                            >
+                              <div className="flex-1 min-w-0 space-y-2">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-black text-blue-700">#{qInSecIdx + 1}</span>
+                                  <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 font-bold text-[10px]">
+                                    {q.questionType}
+                                  </span>
+                                  <span className="text-slate-500 font-semibold">
+                                    {isBangla ? `মান: ${q.marks}` : `Marks: ${q.marks}`}
+                                  </span>
+                                </div>
+
+                                {isEditing ? (
+                                  <div className="space-y-2">
+                                    <textarea
+                                      rows={3}
+                                      value={editText}
+                                      onChange={(e) => setEditText(e.target.value)}
+                                      className="w-full p-2.5 rounded-xl border border-blue-300 text-xs sm:text-sm font-bangla bg-white"
+                                    />
+                                    <div className="flex items-center gap-3">
+                                      <label className="text-xs font-bold text-slate-700">
+                                        {isBangla ? 'মান (Marks):' : 'Marks:'}
+                                      </label>
+                                      <input
+                                        type="number"
+                                        value={editMarks}
+                                        onChange={(e) => setEditMarks(Number(e.target.value))}
+                                        className="w-20 px-2.5 py-1 rounded-lg border border-slate-300 text-xs font-bold bg-white"
+                                      />
+                                      <button
+                                        onClick={() => saveEditQuestion(q)}
+                                        className="px-3 py-1 bg-emerald-600 text-white rounded-lg text-xs font-bold flex items-center gap-1"
+                                      >
+                                        <Check className="w-3.5 h-3.5" /> Save
+                                      </button>
+                                      <button
+                                        onClick={() => setEditingQId(null)}
+                                        className="px-3 py-1 bg-slate-200 text-slate-700 rounded-lg text-xs font-bold"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="text-xs sm:text-sm text-slate-800 font-bangla">
+                                    {q.questionType === 'CQ' && q.stimulus ? (
+                                      <div className="space-y-1">
+                                        <div className="p-2 bg-white rounded-lg border-l-2 border-slate-400">
+                                          <MathRenderer content={q.stimulus} />
+                                        </div>
+                                        {q.cqParts && (
+                                          <div className="pl-2 text-xs text-slate-700 space-y-0.5">
+                                            <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
+                                            <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({q.cqParts.partB.marks})</div>
+                                            <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({q.cqParts.partC.marks})</div>
+                                            <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <div>
+                                        <MathRenderer content={q.questionText} />
+                                        {q.questionType === 'MCQ' && q.options && (
+                                          <div className="grid grid-cols-2 gap-1 mt-1.5 text-xs text-slate-600">
+                                            {q.options.map((opt, oIdx) => (
+                                              <div key={oIdx}>
+                                                {['ক', 'খ', 'গ', 'ঘ'][oIdx]}. <MathRenderer content={opt} />
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Controls: Up, Down, Edit, Remove */}
+                              <div className="flex items-center gap-1 shrink-0">
+                                <button
+                                  onClick={() => handleMoveQuestion(globalIdx, 'up')}
+                                  disabled={globalIdx <= 0}
+                                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-slate-600"
+                                  title="Move Up"
+                                >
+                                  <MoveUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleMoveQuestion(globalIdx, 'down')}
+                                  disabled={globalIdx >= paperQuestions.length - 1}
+                                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-100 disabled:opacity-40 text-slate-600"
+                                  title="Move Down"
+                                >
+                                  <MoveDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => startEditQuestion(q)}
+                                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-blue-50 text-blue-600"
+                                  title="Edit Text & Marks"
+                                >
+                                  <Edit3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleRemoveQuestion(q.id)}
+                                  className="p-1.5 rounded-lg border border-slate-200 bg-white hover:bg-rose-50 text-rose-600"
+                                  title="Remove Question"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   );
@@ -1232,10 +1259,10 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
           <div className="sr-only" aria-hidden="true">
             <div
               id="editor-printable-preview"
-              className="bg-white text-slate-900 p-8 font-serif-bangla text-sm"
-              style={{ width: '794px' }}
+              className="bg-white text-slate-900 p-6 sm:p-8 font-serif-bangla text-sm print:p-0 print:border-none print:shadow-none"
+              style={{ width: '100%', maxWidth: '794px' }}
             >
-              <div className="text-center border-b-2 border-slate-900 pb-3 mb-4">
+              <div className="text-center border-b-2 border-slate-900 pb-3 mb-4 print:pb-2 print:mb-3">
                 {currentPaper.institutionName && (
                   <h1 className="text-xl font-bold">{currentPaper.institutionName}</h1>
                 )}
@@ -1261,55 +1288,73 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                 </div>
               </div>
 
-              <div className="space-y-4">
-                {paperQuestions.map((q, idx) => (
-                  <div key={q.id} className="cq-block">
-                    <div className="flex justify-between items-start gap-2">
-                      <div className="flex-1">
-                        <span className="font-bold mr-1.5">{idx + 1}।</span>
-                        {q.questionType === 'CQ' && q.stimulus ? (
-                          <span>
-                            <MathRenderer content={q.stimulus} />
-                          </span>
-                        ) : (
-                          <span>
-                            <MathRenderer content={q.questionText} />
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-bold text-xs shrink-0">[{q.marks}]</span>
+              {/* Sections with separated headers for CQ, SQ, MCQ */}
+              <div className="space-y-6 print:space-y-4">
+                {currentPaper.sections.map((sec, sIdx) => (
+                  <div key={sec.id || sIdx} className="section-block">
+                    <div className="text-center my-3 print:my-2 pb-1 border-b border-slate-700">
+                      <span className="font-bold text-sm text-slate-900">
+                        {sec.titleBn || sec.titleEn}
+                      </span>
+                      {sec.instructions && (
+                        <p className="text-xs italic text-slate-600 mt-0.5">
+                          [{sec.instructions}]
+                        </p>
+                      )}
                     </div>
 
-                    {q.questionType === 'MCQ' && q.options && (
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 pl-5 mt-1 text-xs">
-                        {q.options.map((opt, oIdx) => (
-                          <div key={oIdx}>
-                            {['ক', 'খ', 'গ', 'ঘ'][oIdx]}) <MathRenderer content={opt} />
+                    <div className="space-y-4 print:space-y-3">
+                      {sec.questions.map((q, idx) => (
+                        <div key={q.id || idx} className="cq-block print:mb-3">
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="flex-1">
+                              <span className="font-bold mr-1.5">{idx + 1}।</span>
+                              {q.questionType === 'CQ' && q.stimulus ? (
+                                <span>
+                                  <MathRenderer content={q.stimulus} />
+                                </span>
+                              ) : (
+                                <span>
+                                  <MathRenderer content={q.questionText} />
+                                </span>
+                              )}
+                            </div>
+                            <span className="font-bold text-xs shrink-0">[{q.marks}]</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
 
-                    {q.questionType === 'CQ' && q.cqParts && (
-                      <div className="pl-5 mt-1.5 space-y-1 text-xs">
-                        <div className="flex justify-between">
-                          <span>ক. <MathRenderer content={q.cqParts.partA.question} /></span>
-                          <span className="font-semibold">{q.cqParts.partA.marks}</span>
+                          {q.questionType === 'MCQ' && q.options && (
+                            <div className="grid grid-cols-2 gap-x-6 gap-y-1 pl-5 mt-1 text-xs">
+                              {q.options.map((opt, oIdx) => (
+                                <div key={oIdx}>
+                                  {['ক', 'খ', 'গ', 'ঘ'][oIdx]}) <MathRenderer content={opt} />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {q.questionType === 'CQ' && q.cqParts && (
+                            <div className="pl-5 mt-1.5 space-y-1 text-xs">
+                              <div className="flex justify-between">
+                                <span>ক. <MathRenderer content={q.cqParts.partA.question} /></span>
+                                <span className="font-semibold">{q.cqParts.partA.marks}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>খ. <MathRenderer content={q.cqParts.partB.question} /></span>
+                                <span className="font-semibold">{q.cqParts.partB.marks}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>গ. <MathRenderer content={q.cqParts.partC.question} /></span>
+                                <span className="font-semibold">{q.cqParts.partC.marks}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span>ঘ. <MathRenderer content={q.cqParts.partD.question} /></span>
+                                <span className="font-semibold">{q.cqParts.partD.marks}</span>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex justify-between">
-                          <span>খ. <MathRenderer content={q.cqParts.partB.question} /></span>
-                          <span className="font-semibold">{q.cqParts.partB.marks}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>গ. <MathRenderer content={q.cqParts.partC.question} /></span>
-                          <span className="font-semibold">{q.cqParts.partC.marks}</span>
-                        </div>
-                        <div className="flex justify-between">
-                          <span>ঘ. <MathRenderer content={q.cqParts.partD.question} /></span>
-                          <span className="font-semibold">{q.cqParts.partD.marks}</span>
-                        </div>
-                      </div>
-                    )}
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>

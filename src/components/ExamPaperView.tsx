@@ -201,7 +201,7 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
       <div className="flex justify-center">
         <div
           id="printable-exam-paper"
-          className={`exam-page w-full max-w-[210mm] min-h-[297mm] bg-white border border-slate-300 shadow-xl p-8 sm:p-12 relative overflow-hidden transition-all ${fontClass} ${sizeClass}`}
+          className={`exam-page w-full max-w-[210mm] min-h-[297mm] print:min-h-0 print:max-w-none print:w-full print:p-0 print:border-none print:shadow-none bg-white border border-slate-300 shadow-xl p-8 sm:p-12 relative overflow-visible print:overflow-visible transition-all ${fontClass} ${sizeClass}`}
           style={{ boxSizing: 'border-box' }}
         >
           {/* Watermark Overlay (Printed on background) */}
@@ -223,7 +223,7 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
           )}
 
           {/* Paper Header */}
-          <div className="relative z-10 text-center border-b-2 border-slate-800 pb-4 mb-6">
+          <div className="relative z-10 text-center border-b-2 border-slate-800 pb-3 mb-4 print:pb-2 print:mb-3">
             {/* Optional Logo */}
             {paper.logoUrl && (
               <div className="flex justify-center mb-2">
@@ -316,18 +316,18 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
 
             {/* Exam Instructions Banner */}
             {paper.instructions && paper.instructions.length > 0 && viewMode === 'paper' && (
-              <div className="mt-2.5 text-xs italic text-slate-700 bg-slate-50 p-2 rounded-md border border-slate-200 text-left">
+              <div className="mt-2 text-xs italic text-slate-700 bg-slate-50 p-2 rounded-md border border-slate-200 text-left">
                 <strong>নির্দেশনা:</strong> {paper.instructions.join(' ')}
               </div>
             )}
           </div>
 
           {/* Sections and Questions */}
-          <div className="relative z-10 space-y-8">
+          <div className="relative z-10 space-y-6 print:space-y-4">
             {paper.sections.map((section, sIdx) => (
-              <div key={section.id || sIdx} className="page-break-inside-avoid">
+              <div key={section.id || sIdx} className="section-block">
                 {/* Section Header */}
-                <div className="text-center my-4">
+                <div className="text-center my-3 print:my-2">
                   <span className="inline-block border-y-2 border-slate-700 py-1 px-6 font-bold text-base text-slate-900">
                     {section.titleBn || section.titleEn}
                   </span>
@@ -342,14 +342,14 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
                 <div
                   className={
                     columnLayout === 'two-column'
-                      ? 'columns-1 sm:columns-2 gap-8 [column-rule:1px_solid_#cbd5e1]'
-                      : 'space-y-6'
+                      ? 'columns-1 sm:columns-2 print:columns-2 gap-8 print:gap-6 [column-rule:1px_solid_#cbd5e1]'
+                      : 'space-y-5 print:space-y-3'
                   }
                 >
                   {section.questions.map((q, qIdx) => (
                     <div
                       key={q.id || qIdx}
-                      className="mb-6 break-inside-avoid page-break-inside-avoid text-slate-900"
+                      className="mb-5 print:mb-3 break-inside-avoid page-break-inside-avoid text-slate-900"
                     >
                       {viewMode === 'paper' ? (
                         /* Student Paper Question Rendering */
