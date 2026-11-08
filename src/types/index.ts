@@ -274,6 +274,12 @@ export interface SubmittedQuestion {
   };
   explanation?: string;
   marks: number;
+  boardInfo?: {
+    boardName: string;
+    year: string;
+    examType?: string;
+    isVerified?: boolean;
+  };
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   adminNotes?: string;
   notifiedAdminEmail?: string;

@@ -18,7 +18,86 @@ import {
   FileText,
   Trash2,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Calendar,
 } from 'lucide-react';
+
+export const STANDARD_BOARDS = [
+  'Dhaka Board',
+  'Rajshahi Board',
+  'Dinajpur Board',
+  'Cumilla Board',
+  'Chattogram Board',
+  'Jashore Board',
+  'Barishal Board',
+  'Sylhet Board',
+  'Mymensingh Board',
+  'Madrasah Board',
+  'Technical Board',
+  'All Boards (সকল বোর্ড)',
+  'শীর্ষ ক্যাডেট / মডেল স্কুল টেস্ট',
+];
+
+export const STANDARD_YEARS = [
+  '2027',
+  '2026',
+  '2025',
+  '2024',
+  '2023',
+  '2022',
+  '2021',
+  '2020',
+  '2019',
+  '2018',
+  '2017',
+  '2016',
+  '2015',
+  '2014',
+  '2013',
+  '2012',
+  '2010',
+];
+
+export const DEFAULT_CHAPTERS = [
+  '১ম অধ্যায়',
+  '২য় অধ্যায়',
+  '৩য় অধ্যায়',
+  '৪র্থ অধ্যায়',
+  '৫ম অধ্যায়',
+  '৬ষ্ঠ অধ্যায়',
+  '৭ম অধ্যায়',
+  '৮ম অধ্যায়',
+  '৯ম অধ্যায়',
+  '১০ম অধ্যায়',
+  '১১শ অধ্যায়',
+  '১২শ অধ্যায়',
+  '১৩শ অধ্যায়',
+  '১৪শ অধ্যায়',
+  'সম্পূর্ণ বই / মডেল টেস্ট',
+];
+
+export const DEFAULT_SSC_SUBJECTS = [
+  'Physics (পদার্থবিজ্ঞান)',
+  'Chemistry (রসায়ন)',
+  'Biology (জীববিজ্ঞান)',
+  'Higher Mathematics (উচ্চতর গণিত)',
+  'General Mathematics (সাধারণ গণিত)',
+  'Bangla 1st Paper (বাংলা ১ম পত্র)',
+  'Bangla 2nd Paper (বাংলা ২য় পত্র)',
+  'English 1st Paper (ইংরেজি ১ম পত্র)',
+  'English 2nd Paper (ইংরেজি ২য় পত্র)',
+  'ICT (তথ্য ও যোগাযোগ প্রযুক্তি)',
+  'Bangladesh and Global Studies (বিজিএস)',
+  'Accounting (হিসাববিজ্ঞান)',
+  'Finance & Banking (ফিন্যান্স ও ব্যাংকিং)',
+  'Business Entrepreneurship (ব্যবসায় উদ্যোগ)',
+  'Islam and Moral Education (ইসলাম শিক্ষা)',
+  'Hindu Religion and Moral Education (হিন্দুধর্ম)',
+  'General Science (সাধারণ বিজ্ঞান)',
+  'Agricultural Studies (কৃষি শিক্ষা)',
+  'Home Science (গার্হস্থ্য বিজ্ঞান)',
+];
 
 interface QuestionLibraryViewProps {
   questions: Question[];
@@ -63,12 +142,24 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
 
   // Manual Add Question Modal (Admin/Owner only)
   const [showAddModal, setShowAddModal] = useState(false);
-  const [newType, setNewType] = useState<QuestionType>('MCQ');
+  const [newType, setNewType] = useState<QuestionType>('CQ');
   const [newSubject, setNewSubject] = useState('Physics');
-  const [newChapter, setNewChapter] = useState('');
-  const [newBoard, setNewBoard] = useState('Dhaka Board');
-  const [newYear, setNewYear] = useState('2025');
-  const [newMarks, setNewMarks] = useState<number>(1);
+  const [customSubjectMode, setCustomSubjectMode] = useState(false);
+  const [customSubjectText, setCustomSubjectText] = useState('');
+
+  const [newChapter, setNewChapter] = useState('১ম অধ্যায়');
+  const [customChapterMode, setCustomChapterMode] = useState(false);
+  const [customChapterText, setCustomChapterText] = useState('');
+
+  const [newBoard, setNewBoard] = useState('Dinajpur Board');
+  const [customBoardMode, setCustomBoardMode] = useState(false);
+  const [customBoardText, setCustomBoardText] = useState('');
+
+  const [newYear, setNewYear] = useState('2024');
+  const [customYearMode, setCustomYearMode] = useState(false);
+  const [customYearText, setCustomYearText] = useState('');
+
+  const [newMarks, setNewMarks] = useState<number>(10);
   const [newQuestionText, setNewQuestionText] = useState('');
   const [newOptions, setNewOptions] = useState<string[]>(['', '', '', '']);
   const [newCorrectIdx, setNewCorrectIdx] = useState<number>(0);
@@ -78,6 +169,18 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   const [newPartB, setNewPartB] = useState('');
   const [newPartC, setNewPartC] = useState('');
   const [newPartD, setNewPartD] = useState('');
+
+  // Quick Year Stepper: jumps to previous year or next year
+  const stepYear = (delta: number) => {
+    const currentNum = parseInt(newYear, 10);
+    if (!isNaN(currentNum)) {
+      const nextNum = currentNum + delta;
+      setNewYear(String(nextNum));
+      setCustomYearMode(false);
+    } else {
+      setNewYear('2024');
+    }
+  };
 
   // Dynamically derive available categories/subjects from dynamicSubjects + existing questions
   const availableSubjects = useMemo(() => {
@@ -168,15 +271,38 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
     setSelectedIds(new Set());
   };
 
+  // List of subject options for modal dropdown (standard + existing)
+  const modalSubjectOptions = useMemo(() => {
+    const set = new Set<string>();
+    DEFAULT_SSC_SUBJECTS.forEach((s) => set.add(s));
+    availableSubjects.forEach((s) => set.add(s));
+    return Array.from(set);
+  }, [availableSubjects]);
+
+  // List of chapter options for modal dropdown
+  const modalChapterOptions = useMemo(() => {
+    const set = new Set<string>();
+    DEFAULT_CHAPTERS.forEach((c) => set.add(c));
+    questions.forEach((q) => {
+      if (q.chapter) set.add(q.chapter);
+    });
+    return Array.from(set);
+  }, [questions]);
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!onAddQuestion) return;
 
+    const finalSubject = (customSubjectMode ? customSubjectText : newSubject).trim() || 'Physics';
+    const finalChapter = (customChapterMode ? customChapterText : newChapter).trim() || '১ম অধ্যায়';
+    const finalBoard = (customBoardMode ? customBoardText : newBoard).trim();
+    const finalYear = (customYearMode ? customYearText : newYear).trim() || '2024';
+
     const newQ: Question = {
       id: `q-${Date.now()}`,
       classLevel: 'SSC',
-      subject: newSubject.trim() || 'Physics',
-      chapter: newChapter.trim() || 'অধ্যায় ১',
+      subject: finalSubject,
+      chapter: finalChapter,
       questionType: newType,
       questionText: newType === 'CQ' ? 'সৃজনশীল প্রশ্ন' : newQuestionText.trim(),
       stimulus: newType === 'CQ' ? newStimulus.trim() : undefined,
@@ -195,10 +321,10 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
       marks: newType === 'CQ' ? 10 : Number(newMarks) || 1,
       difficulty: 'Medium',
       sourceType: 'NCTB_BOARD_PATTERN',
-      boardInfo: newBoard
+      boardInfo: finalBoard
         ? {
-            boardName: newBoard,
-            year: newYear || '2025',
+            boardName: finalBoard,
+            year: finalYear,
             examType: 'SSC Exam',
             isVerified: true,
           }
@@ -513,7 +639,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             <form onSubmit={handleManualSubmit} className="p-5 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Question Type</label>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Question Type (ধরন)</label>
                   <select
                     value={newType}
                     onChange={(e) => {
@@ -521,7 +647,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                       setNewType(t);
                       setNewMarks(t === 'CQ' ? 10 : t === 'SQ' ? 2 : 1);
                     }}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500 shadow-2xs"
                   >
                     <option value="MCQ">MCQ (বহুনির্বাচনী)</option>
                     <option value="SQ">SQ (সংক্ষিপ্ত প্রশ্ন)</option>
@@ -530,60 +656,268 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">SSC Subject</label>
-                  <input
-                    type="text"
-                    required
-                    value={newSubject}
-                    onChange={(e) => setNewSubject(e.target.value)}
-                    placeholder="Physics / পদার্থবিজ্ঞান"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">SSC Subject (বিষয়)</label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomSubjectMode(!customSubjectMode)}
+                      className="text-[10px] text-blue-600 hover:underline font-semibold"
+                    >
+                      {customSubjectMode ? 'তালিকা থেকে পছন্দ' : '+ কাস্টম বিষয়'}
+                    </button>
+                  </div>
+                  {customSubjectMode ? (
+                    <input
+                      type="text"
+                      required
+                      value={customSubjectText}
+                      onChange={(e) => setCustomSubjectText(e.target.value)}
+                      placeholder="যেমন: পৌরনীতি ও সুশাসন"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs bg-blue-50/30 focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <select
+                      value={newSubject}
+                      onChange={(e) => {
+                        if (e.target.value === '__CUSTOM__') {
+                          setCustomSubjectMode(true);
+                        } else {
+                          setNewSubject(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                    >
+                      {modalSubjectOptions.map((subj) => (
+                        <option key={subj} value={subj}>
+                          {subj}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">+ কাস্টম বিষয় লিখুন...</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Chapter</label>
-                  <input
-                    type="text"
-                    required
-                    value={newChapter}
-                    onChange={(e) => setNewChapter(e.target.value)}
-                    placeholder="অধ্যায় ৪: কাজ, ক্ষমতা ও শক্তি"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
-                  />
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">Chapter (অধ্যায়)</label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomChapterMode(!customChapterMode)}
+                      className="text-[10px] text-blue-600 hover:underline font-semibold"
+                    >
+                      {customChapterMode ? 'তালিকা থেকে পছন্দ' : '+ কাস্টম অধ্যায়'}
+                    </button>
+                  </div>
+                  {customChapterMode ? (
+                    <input
+                      type="text"
+                      required
+                      value={customChapterText}
+                      onChange={(e) => setCustomChapterText(e.target.value)}
+                      placeholder="অধ্যায় ৪: কাজ, ক্ষমতা ও শক্তি"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs font-bangla bg-blue-50/30 focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <select
+                      value={newChapter}
+                      onChange={(e) => {
+                        if (e.target.value === '__CUSTOM__') {
+                          setCustomChapterMode(true);
+                        } else {
+                          setNewChapter(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-bangla bg-white font-medium focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                    >
+                      {modalChapterOptions.map((chap) => (
+                        <option key={chap} value={chap}>
+                          {chap}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">+ কাস্টম অধ্যায় লিখুন...</option>
+                    </select>
+                  )}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Board (Optional)</label>
-                  <input
-                    type="text"
-                    value={newBoard}
-                    onChange={(e) => setNewBoard(e.target.value)}
-                    placeholder="Dhaka Board"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                  />
+              {/* Board, Year, and Marks with Previous/Next Year Stepper */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-1">
+                {/* Board Dropdown */}
+                <div className="sm:col-span-4">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-xs font-bold text-slate-700">Board (বোর্ড - ঐচ্ছিক)</label>
+                    <button
+                      type="button"
+                      onClick={() => setCustomBoardMode(!customBoardMode)}
+                      className="text-[10px] text-blue-600 hover:underline font-semibold"
+                    >
+                      {customBoardMode ? 'তালিকা থেকে পছন্দ' : '+ কাস্টম'}
+                    </button>
+                  </div>
+                  {customBoardMode ? (
+                    <input
+                      type="text"
+                      value={customBoardText}
+                      onChange={(e) => setCustomBoardText(e.target.value)}
+                      placeholder="কাস্টম বোর্ড বা স্কুলের নাম"
+                      className="w-full px-3 py-2 rounded-xl border border-blue-300 text-xs bg-blue-50/30 focus:ring-2 focus:ring-blue-500"
+                    />
+                  ) : (
+                    <select
+                      value={newBoard}
+                      onChange={(e) => {
+                        if (e.target.value === '__CUSTOM__') {
+                          setCustomBoardMode(true);
+                        } else {
+                          setNewBoard(e.target.value);
+                        }
+                      }}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs bg-white font-medium focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                    >
+                      <option value="">বোর্ড ছাড়া / সাধারণ প্রশ্ন</option>
+                      {STANDARD_BOARDS.map((b) => (
+                        <option key={b} value={b}>
+                          {b}
+                        </option>
+                      ))}
+                      <option value="__CUSTOM__">+ কাস্টম বোর্ড লিখুন...</option>
+                    </select>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Year (Optional)</label>
-                  <input
-                    type="text"
-                    value={newYear}
-                    onChange={(e) => setNewYear(e.target.value)}
-                    placeholder="2025"
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs"
-                  />
+
+                {/* Year with Auto-Stepper: [← আগের বছর] [2024] [পরের বছর →] */}
+                <div className="sm:col-span-5 bg-gradient-to-br from-blue-50/60 to-indigo-50/40 p-2.5 rounded-2xl border border-blue-100 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-blue-600" />
+                      <span>Year (পরীক্ষার সাল/বছর)</span>
+                    </label>
+                    <span className="text-[11px] font-extrabold text-blue-700 bg-white px-2 py-0.5 rounded-full border border-blue-200 shadow-2xs">
+                      {customYearMode ? customYearText || '—' : newYear}
+                    </span>
+                  </div>
+
+                  {customYearMode ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        type="text"
+                        value={customYearText}
+                        onChange={(e) => setCustomYearText(e.target.value)}
+                        placeholder="যেমন: 2024"
+                        className="flex-1 px-3 py-1.5 rounded-xl border border-blue-300 text-xs bg-white focus:ring-2 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setCustomYearMode(false)}
+                        className="px-2.5 py-1.5 text-[11px] bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl font-medium"
+                      >
+                        লিস্ট
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-1">
+                      {/* Previous Year Button */}
+                      <button
+                        type="button"
+                        onClick={() => stepYear(-1)}
+                        title="আগের বছর নির্বাচন করুন"
+                        className="px-2 py-1.5 bg-white hover:bg-blue-600 hover:text-white text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold flex items-center gap-0.5 transition-all shadow-2xs active:scale-95 shrink-0"
+                      >
+                        <ChevronLeft className="w-3.5 h-3.5" />
+                        <span>আগের বছর</span>
+                      </button>
+
+                      {/* Year Dropdown */}
+                      <select
+                        value={newYear}
+                        onChange={(e) => {
+                          if (e.target.value === '__CUSTOM__') {
+                            setCustomYearMode(true);
+                          } else {
+                            setNewYear(e.target.value);
+                          }
+                        }}
+                        className="flex-1 px-2 py-1.5 rounded-xl border border-blue-200 text-xs bg-white font-bold text-center text-blue-950 focus:ring-2 focus:ring-blue-500 shadow-2xs"
+                      >
+                        {STANDARD_YEARS.map((y) => (
+                          <option key={y} value={y}>
+                            {y}
+                          </option>
+                        ))}
+                        <option value="__CUSTOM__">+ কাস্টম সাল...</option>
+                      </select>
+
+                      {/* Next Year Button */}
+                      <button
+                        type="button"
+                        onClick={() => stepYear(1)}
+                        title="পরের বছর নির্বাচন করুন"
+                        className="px-2 py-1.5 bg-white hover:bg-blue-600 hover:text-white text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold flex items-center gap-0.5 transition-all shadow-2xs active:scale-95 shrink-0"
+                      >
+                        <span>পরের বছর</span>
+                        <ChevronRight className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Quick Year Selection Chips */}
+                  <div className="flex items-center gap-1 overflow-x-auto pt-0.5">
+                    {['2026', '2025', '2024', '2023', '2022', '2020'].map((yr) => (
+                      <button
+                        key={yr}
+                        type="button"
+                        onClick={() => {
+                          setNewYear(yr);
+                          setCustomYearMode(false);
+                        }}
+                        className={`px-2 py-0.5 rounded-lg text-[10px] font-bold transition-all ${
+                          newYear === yr && !customYearMode
+                            ? 'bg-blue-600 text-white shadow-2xs scale-105'
+                            : 'bg-white/80 text-slate-600 hover:bg-blue-100 hover:text-blue-800 border border-slate-200/80'
+                        }`}
+                      >
+                        {yr}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Marks</label>
-                  <input
-                    type="number"
-                    value={newType === 'CQ' ? 10 : newMarks}
-                    onChange={(e) => setNewMarks(Number(e.target.value))}
-                    disabled={newType === 'CQ'}
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bold"
-                  />
+
+                {/* Marks with preset buttons */}
+                <div className="sm:col-span-3 space-y-1.5">
+                  <label className="block text-xs font-bold text-slate-700">Marks (নম্বর)</label>
+                  {newType === 'CQ' ? (
+                    <div className="w-full px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-700 flex items-center justify-between">
+                      <span>১০ নম্বর</span>
+                      <span className="text-[10px] text-slate-500 font-normal">সৃজনশীল নির্ধারিত</span>
+                    </div>
+                  ) : (
+                    <div>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={newMarks}
+                        onChange={(e) => setNewMarks(Number(e.target.value))}
+                        className="w-full px-3 py-1.5 rounded-xl border border-slate-300 text-xs font-bold bg-white focus:ring-2 focus:ring-blue-500"
+                      />
+                      <div className="flex items-center gap-1 mt-1">
+                        {[1, 2, 4, 5, 10].map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => setNewMarks(m)}
+                            className={`flex-1 py-0.5 text-[10px] font-bold rounded-md border transition-all ${
+                              newMarks === m
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : 'bg-slate-50 text-slate-600 hover:bg-slate-200 border-slate-200'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
 
