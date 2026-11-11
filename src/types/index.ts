@@ -308,6 +308,8 @@ export interface UserProfile {
   logoUrl?: string;
   watermarkText?: string;
   watermarkOpacity?: number;
+  watermarkPosition?: 'center' | 'diagonal';
+  phoneNumber?: string;
   defaultLanguage?: LanguageOption;
   currentWorkspaceId?: string;
   createdAt?: string;

@@ -65,6 +65,7 @@ import { WorkspaceMembersView } from './components/WorkspaceMembersView';
 import { AdminConfigManager } from './components/AdminConfigManager';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { SubmitQuestionModal } from './components/SubmitQuestionModal';
+import { UserProfileView } from './components/UserProfileView';
 
 // Services
 import { loadWorkspaceBranding, saveWorkspaceBranding } from './services/brandingService';
@@ -75,7 +76,11 @@ import {
   saveQuestionToCloud,
   deleteQuestionFromCloud,
 } from './services/questionBankService';
-import { recordUserLogin } from './services/userService';
+import {
+  recordUserLogin,
+  loadUserProfile,
+  saveUserExamBranding,
+} from './services/userService';
 
 // Icons
 import {
@@ -246,17 +251,22 @@ export default function App() {
     }
     return AUTHENTIC_NCTB_QUESTIONS;
   });
-  const [papers, setPapers] = useState<QuestionPaper[]>([]);
-  const [userProfile, setUserProfile] = useState<UserProfile>({
-    uid: 'owner',
-    email: OWNER_EMAIL,
-    displayName: 'Md. Jahidul Islam',
-    institutionName: 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ',
-    institutionAddress: 'মতিঝিল, ঢাকা-১০০০',
-    watermarkText: 'IDEAL SCHOOL',
+  const GUEST_PROFILE: UserProfile = {
+    uid: 'guest',
+    email: '',
+    displayName: '',
+    institutionName: '',
+    institutionAddress: '',
+    logoUrl: '',
+    watermarkText: '',
     watermarkOpacity: 0.08,
+    watermarkPosition: 'diagonal',
+    phoneNumber: '',
     defaultLanguage: 'Bangla',
-  });
+  };
+
+  const [papers, setPapers] = useState<QuestionPaper[]>([]);
+  const [userProfile, setUserProfile] = useState<UserProfile>(GUEST_PROFILE);
 
   // Current editing / preview paper
   const [currentEditingPaper, setCurrentEditingPaper] = useState<QuestionPaper | null>(null);
@@ -280,8 +290,8 @@ export default function App() {
     const newLog: ActivityLogRecord = {
       id: `log-${Date.now()}`,
       workspaceId: currentWorkspace.id,
-      userId: currentUser?.uid || 'owner',
-      userEmail: currentUser?.email || OWNER_EMAIL,
+      userId: currentUser?.uid || 'guest',
+      userEmail: currentUser?.email || 'guest@eduquestion.app',
       action,
       entityType,
       details,
@@ -297,14 +307,17 @@ export default function App() {
     // 1. Authoritative Cloud & Local Workspace Branding Load
     loadWorkspaceBranding().then((ws) => {
       setCurrentWorkspace(ws);
-      setUserProfile((prev) => ({
-        ...prev,
-        institutionName: ws.institutionName,
-        institutionAddress: ws.institutionAddress,
-        logoUrl: ws.logoUrl,
-        watermarkText: ws.watermarkText,
-        watermarkOpacity: ws.watermarkOpacity,
-      }));
+      // Only set in userProfile if the current logged-in user is the super admin owner!
+      if (currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+        setUserProfile((prev) => ({
+          ...prev,
+          institutionName: ws.institutionName,
+          institutionAddress: ws.institutionAddress,
+          logoUrl: ws.logoUrl,
+          watermarkText: ws.watermarkText,
+          watermarkOpacity: ws.watermarkOpacity,
+        }));
+      }
     });
 
     // 2. Count pending user submissions for Admin Dashboard
@@ -411,14 +424,36 @@ export default function App() {
       localStorage.setItem('edu_papers', JSON.stringify([initialPaper]));
     }
 
+    const syncUserProfile = async (user: FirebaseUser) => {
+      try {
+        const isOwner = user.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+        const profile = await recordUserLogin(user);
+        setUserProfile({
+          uid: user.uid,
+          email: user.email || '',
+          displayName: profile.displayName || user.displayName || user.email?.split('@')[0] || 'User',
+          institutionName: profile.institutionName || (isOwner ? 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ' : ''),
+          institutionAddress: profile.institutionAddress || (isOwner ? 'মতিঝিল, ঢাকা-১০০০' : ''),
+          logoUrl: profile.logoUrl || '',
+          watermarkText: profile.watermarkText || (isOwner ? 'IDEAL SCHOOL' : ''),
+          watermarkOpacity: profile.watermarkOpacity ?? 0.08,
+          watermarkPosition: profile.watermarkPosition || 'diagonal',
+          phoneNumber: profile.phoneNumber || '',
+          defaultLanguage: 'Bangla',
+        });
+      } catch (e) {
+        console.warn('Failed to sync user profile:', e);
+      }
+    };
+
     // Handle redirect result if user returned from Google redirect sign-in (mobile browsers)
     getRedirectResult(auth)
-      .then((result) => {
+      .then(async (result) => {
         if (result && result.user) {
           setCurrentUser(result.user);
           setShowAuthModal(false);
           setAuthLoading(false);
-          recordUserLogin(result.user).catch((e) => console.warn('Failed to record user login:', e));
+          await syncUserProfile(result.user);
           logActivity('USER_LOGIN', 'AUTH', `User ${result.user.email} signed in via Google redirect.`);
         }
       })
@@ -433,7 +468,9 @@ export default function App() {
       setAuthLoading(false);
       if (user) {
         logActivity('USER_LOGIN', 'AUTH', `User ${user.email} signed in.`);
-        recordUserLogin(user).catch((e) => console.warn('Failed to record user login:', e));
+        await syncUserProfile(user);
+      } else {
+        setUserProfile(GUEST_PROFILE);
       }
     });
 
@@ -785,13 +822,51 @@ export default function App() {
     logActivity('SAVE_PAPER', 'PAPER', `Saved examination paper ${paper.title}.`);
   };
 
+  const handleSaveUserProfile = async (updated: Partial<UserProfile>) => {
+    if (!currentUser) return;
+    try {
+      await saveUserExamBranding(currentUser.uid, {
+        displayName: updated.displayName,
+        institutionName: updated.institutionName,
+        institutionAddress: updated.institutionAddress,
+        logoUrl: updated.logoUrl,
+        watermarkText: updated.watermarkText,
+        watermarkOpacity: updated.watermarkOpacity,
+        watermarkPosition: updated.watermarkPosition,
+        phoneNumber: updated.phoneNumber,
+      });
+      setUserProfile((prev) => ({
+        ...prev,
+        ...updated,
+      }));
+      if (isSuperAdminOwner && updated.institutionName) {
+        await handleUpdateWorkspaceBranding({
+          institutionName: updated.institutionName,
+          institutionAddress: updated.institutionAddress,
+          logoUrl: updated.logoUrl,
+          watermarkText: updated.watermarkText,
+          watermarkOpacity: updated.watermarkOpacity,
+        });
+      }
+      logActivity('UPDATE_PROFILE', 'USER', `Updated profile and branding for ${currentUser.email}`);
+    } catch (err) {
+      console.error('Failed to save user profile:', err);
+    }
+  };
+
   const handleCreateNewPaper = () => {
     const freshPaper: QuestionPaper = {
       id: `paper-${Date.now()}`,
-      ownerId: currentUser?.uid || 'owner',
+      ownerId: currentUser?.uid || 'guest',
       title: isBangla ? 'নতুন পরীক্ষা পত্র ২০২৬' : 'New Examination Paper 2026',
-      institutionName: currentWorkspace.institutionName,
-      institutionAddress: currentWorkspace.institutionAddress,
+      institutionName:
+        userProfile.institutionName ||
+        (isSuperAdminOwner ? currentWorkspace.institutionName : '') ||
+        'আপনার প্রতিষ্ঠানের নাম',
+      institutionAddress:
+        userProfile.institutionAddress ||
+        (isSuperAdminOwner ? currentWorkspace.institutionAddress : '') ||
+        'ঠিকানা ও শহর',
       classLevel: 'Class 10',
       subject: 'পদার্থবিজ্ঞান',
       subjectCode: '136',
@@ -801,8 +876,11 @@ export default function App() {
         '১. ডান পাশের সংখ্যা প্রশ্নের পূর্ণমান নির্দেশক।',
         '২. যেকোনো ৭টি প্রশ্নের উত্তর দাও।',
       ],
-      watermarkText: currentWorkspace.watermarkText,
-      watermarkOpacity: currentWorkspace.watermarkOpacity,
+      watermarkText:
+        userProfile.watermarkText ||
+        (isSuperAdminOwner ? currentWorkspace.watermarkText : '') ||
+        '',
+      watermarkOpacity: userProfile.watermarkOpacity ?? 0.08,
       sections: [
         {
           id: `sec-${Date.now()}-1`,
@@ -1426,51 +1504,15 @@ export default function App() {
           )}
 
           {activeView === 'profile' && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs max-w-2xl space-y-6">
-              <div className="flex items-center gap-4 border-b border-slate-100 pb-5">
-                <div className="w-16 h-16 rounded-2xl bg-blue-100 text-blue-700 flex items-center justify-center font-black text-2xl">
-                  {currentUser?.displayName ? currentUser.displayName[0] : (userProfile.displayName || 'U')[0]}
-                </div>
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">
-                    {currentUser?.displayName || userProfile.displayName}
-                  </h2>
-                  <p className="text-xs text-slate-500">{currentUser?.email || userProfile.email}</p>
-                  <span className="inline-flex items-center gap-1 mt-1.5 px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 text-[11px] font-bold">
-                    <Shield className="w-3 h-3" /> Role: {isSuperAdminOwner ? 'OWNER / SUPER ADMIN' : 'TEACHER / CONTRIBUTOR'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-slate-400 font-bold uppercase text-[10px]">Institution Name</div>
-                  <div className="font-bold text-slate-800 mt-1 text-sm">{userProfile.institutionName}</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-slate-400 font-bold uppercase text-[10px]">Institution Address</div>
-                  <div className="font-bold text-slate-800 mt-1 text-sm">{userProfile.institutionAddress || 'Dhaka, Bangladesh'}</div>
-                </div>
-              </div>
-
-              <div className="pt-2">
-                {currentUser ? (
-                  <button
-                    onClick={handleSignOut}
-                    className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold flex items-center gap-2"
-                  >
-                    <LogOut className="w-4 h-4" /> Sign Out
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => setShowAuthModal(true)}
-                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center gap-2"
-                  >
-                    <LogIn className="w-4 h-4" /> Sign In with Google / Email
-                  </button>
-                )}
-              </div>
-            </div>
+            <UserProfileView
+              currentUser={currentUser}
+              userProfile={userProfile}
+              isSuperAdminOwner={isSuperAdminOwner}
+              isBangla={isBangla}
+              onSaveProfile={handleSaveUserProfile}
+              onOpenAuthModal={() => setShowAuthModal(true)}
+              onSignOut={handleSignOut}
+            />
           )}
 
           {activeView === 'settings' && (
@@ -1632,11 +1674,24 @@ export default function App() {
                           type="button"
                           onClick={() => {
                             // Temporary offline admin bypass for testing on preview domain
-                            setCurrentUser({
+                            const offlineAdmin = {
                               uid: 'owner-jahidul',
                               email: OWNER_EMAIL,
                               displayName: 'Md. Jahidul Islam (Admin)',
-                            } as any);
+                            };
+                            setCurrentUser(offlineAdmin as any);
+                            setUserProfile({
+                              uid: 'owner-jahidul',
+                              email: OWNER_EMAIL,
+                              displayName: 'Md. Jahidul Islam (Admin)',
+                              institutionName: currentWorkspace.institutionName || 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ',
+                              institutionAddress: currentWorkspace.institutionAddress || 'মতিঝিল, ঢাকা-১০০০',
+                              logoUrl: currentWorkspace.logoUrl || '',
+                              watermarkText: currentWorkspace.watermarkText || 'IDEAL SCHOOL',
+                              watermarkOpacity: currentWorkspace.watermarkOpacity || 0.08,
+                              watermarkPosition: 'diagonal',
+                              defaultLanguage: 'Bangla',
+                            });
                             setShowAuthModal(false);
                             setAuthError(null);
                           }}

@@ -12,6 +12,12 @@
         "role": { "type": "string", "maxLength": 64 },
         "providerId": { "type": "string", "maxLength": 64 },
         "currentWorkspaceId": { "type": "string", "maxLength": 128 },
+        "institutionName": { "type": "string", "maxLength": 256 },
+        "institutionAddress": { "type": "string", "maxLength": 256 },
+        "logoUrl": { "type": "string", "maxLength": 2048 },
+        "watermarkText": { "type": "string", "maxLength": 128 },
+        "watermarkOpacity": { "type": "number" },
+        "phoneNumber": { "type": "string", "maxLength": 64 },
         "lastLoginAt": { "type": "string" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
