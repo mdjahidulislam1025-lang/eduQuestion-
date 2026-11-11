@@ -8,7 +8,11 @@
         "uid": { "type": "string", "maxLength": 128 },
         "email": { "type": "string", "maxLength": 256 },
         "displayName": { "type": "string", "maxLength": 128 },
+        "photoURL": { "type": "string", "maxLength": 2048 },
+        "role": { "type": "string", "maxLength": 64 },
+        "providerId": { "type": "string", "maxLength": 64 },
         "currentWorkspaceId": { "type": "string", "maxLength": 128 },
+        "lastLoginAt": { "type": "string" },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
       },

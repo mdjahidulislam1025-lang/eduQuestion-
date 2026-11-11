@@ -43,11 +43,20 @@ import {
   Upload,
   Eye,
   GraduationCap,
+  Users,
+  Search,
+  UserCheck,
+  Calendar,
 } from 'lucide-react';
 import {
   subscribeToViewCount,
   formatBengaliNumber,
 } from '../services/siteStatsService';
+import {
+  AppUserProfile,
+  loadAllRegisteredUsers,
+  subscribeToRegisteredUsers,
+} from '../services/userService';
 
 interface AdminDashboardViewProps {
   allQuestions: Question[];
@@ -84,7 +93,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onSaveExamPreset,
   onDeleteExamPreset,
 }) => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'branding' | 'configs' | 'notifications'>(
+  const [activeTab, setActiveTab] = useState<'submissions' | 'branding' | 'configs' | 'notifications' | 'users'>(
     'submissions'
   );
 
@@ -93,6 +102,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [submissionFilter, setSubmissionFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Registered Users State
+  const [registeredUsers, setRegisteredUsers] = useState<AppUserProfile[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
 
   // Notifications State
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
@@ -108,7 +122,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setBrandingDraft(workspace);
   }, [workspace]);
 
-  // Load Submissions & Notifications
+  // Load Submissions & Notifications & Users
   const refreshSubmissions = async () => {
     setIsLoadingSubmissions(true);
     try {
@@ -133,16 +147,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
+  const refreshUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const list = await loadAllRegisteredUsers();
+      setRegisteredUsers(list);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   // Site Views Counter State
   const [siteViews, setSiteViews] = useState<number>(1025);
 
   useEffect(() => {
     refreshSubmissions();
     refreshNotifications();
-    const unsub = subscribeToViewCount((count) => {
+    refreshUsers();
+    const unsubViews = subscribeToViewCount((count) => {
       setSiteViews(count);
     });
-    return () => unsub();
+    const unsubUsers = subscribeToRegisteredUsers((users) => {
+      setRegisteredUsers(users);
+    });
+    return () => {
+      unsubViews();
+      unsubUsers();
+    };
   }, []);
 
   // Filtered Submissions
@@ -264,12 +297,83 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       </div>
 
       {/* Metric Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+        {/* Pending Submissions */}
+        <div
+          onClick={() => setActiveTab('submissions')}
+          className={`cursor-pointer p-4 rounded-2xl border transition-all ${
+            pendingCount > 0
+              ? 'bg-amber-50/70 border-amber-300 shadow-sm ring-1 ring-amber-400'
+              : 'bg-white border-slate-200'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-600">
+              {isBangla ? 'পেন্ডিং প্রশ্ন' : 'Pending Submissions'}
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
+              <Clock className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-amber-800">{pendingCount}</span>
+            {pendingCount > 0 && (
+              <span className="text-[10px] font-bold text-amber-700 bg-amber-200/80 px-2 py-0.5 rounded-full animate-pulse">
+                অনুমোদন বাকি
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">ইউজারদের জমা দেওয়া প্রশ্ন</p>
+        </div>
+
+        {/* Total Questions */}
+        <div
+          onClick={() => setActiveTab('submissions')}
+          className="cursor-pointer bg-white p-4 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-600">
+              {isBangla ? 'প্রশ্ন ব্যাংকে প্রশ্ন' : 'Question Bank'}
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+              <BookOpen className="w-4 h-4" />
+            </div>
+          </div>
+          <span className="text-2xl font-black text-blue-900">{allQuestions.length}</span>
+          <p className="text-[11px] text-slate-500 mt-1">সক্রিয় ক্লাউড প্রশ্নমালা</p>
+        </div>
+
+        {/* Registered Users */}
+        <div
+          onClick={() => setActiveTab('users')}
+          className={`cursor-pointer p-4 rounded-2xl border transition-all ${
+            activeTab === 'users'
+              ? 'bg-blue-50/80 border-blue-300 shadow-xs ring-1 ring-blue-400'
+              : 'bg-white border-slate-200 hover:border-blue-300'
+          }`}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-slate-600">
+              {isBangla ? 'লগইনকৃত ইউজার' : 'Registered Users'}
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-xs">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-purple-950">{registeredUsers.length}</span>
+            <span className="text-[10px] font-bold text-purple-700 bg-purple-100 px-1.5 py-0.5 rounded-full">
+              Gmail
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">লগইনকৃত ইউজারদের তালিকা</p>
+        </div>
+
         {/* Live Site Visitors / Views */}
         <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/80 p-4 rounded-2xl border border-indigo-200/80 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-indigo-900">
-              {isBangla ? 'ওয়েবসাইট মোট ভিউ' : 'Total Site Views'}
+              {isBangla ? 'ওয়েবসাইট ভিউ' : 'Total Site Views'}
             </span>
             <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
               <Eye className="w-4 h-4" />
@@ -285,66 +389,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               লাইভ
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 mt-1">রিয়েল-টাইম ভিজিটর কাউন্টার</p>
-        </div>
-
-        {/* Pending Submissions */}
-        <div
-          onClick={() => setActiveTab('submissions')}
-          className={`cursor-pointer p-4 rounded-2xl border transition-all ${
-            pendingCount > 0
-              ? 'bg-amber-50/70 border-amber-300 shadow-sm ring-1 ring-amber-400'
-              : 'bg-white border-slate-200'
-          }`}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-600">
-              {isBangla ? 'পেন্ডিং ইউজার প্রশ্ন' : 'Pending Submissions'}
-            </span>
-            <div className="w-7 h-7 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs">
-              <Clock className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-amber-800">{pendingCount}</span>
-            {pendingCount > 0 && (
-              <span className="text-[10px] font-bold text-amber-700 bg-amber-200/80 px-2 py-0.5 rounded-full animate-pulse">
-                অনুমোদন বাকি
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-slate-500 mt-1">Vercel লিংক থেকে ইউজারদের জমা দেওয়া প্রশ্ন</p>
-        </div>
-
-        {/* Total Questions */}
-        <div
-          onClick={() => setActiveTab('submissions')}
-          className="cursor-pointer bg-white p-4 rounded-2xl border border-slate-200 shadow-xs hover:border-blue-300 transition-all"
-        >
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-600">
-              {isBangla ? 'প্রশ্ন ব্যাংকে মোট প্রশ্ন' : 'Total in Question Bank'}
-            </span>
-            <div className="w-7 h-7 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-              <BookOpen className="w-4 h-4" />
-            </div>
-          </div>
-          <span className="text-2xl font-black text-blue-900">{allQuestions.length}</span>
-          <p className="text-[11px] text-slate-500 mt-1">সক্রিয় ও ব্যবহারযোগ্য প্রশ্নের সংগ্রহ</p>
+          <p className="text-[11px] text-slate-500 mt-1">অটোমেটিক ক্লাউড কাউন্টার</p>
         </div>
 
         {/* Total Papers */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-600">
-              {isBangla ? 'তৈরিকৃত পরীক্ষা পত্র' : 'Generated Papers'}
+              {isBangla ? 'পরীক্ষা পত্র' : 'Generated Papers'}
             </span>
             <div className="w-7 h-7 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs">
               <FileText className="w-4 h-4" />
             </div>
           </div>
           <span className="text-2xl font-black text-emerald-900">{allPapers.length}</span>
-          <p className="text-[11px] text-slate-500 mt-1">ডাউনলোড ও প্রিন্ট উপযোগী প্রশ্নপত্র</p>
+          <p className="text-[11px] text-slate-500 mt-1">প্রিন্ট ও ডাউনলোড উপযোগী</p>
         </div>
 
         {/* Active Subjects & Classes */}
@@ -354,7 +413,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-bold text-slate-600">
-              {isBangla ? 'সক্রিয় শ্রেণি ও বিষয়' : 'Classes & Subjects'}
+              {isBangla ? 'শ্রেণি ও বিষয়' : 'Classes & Subjects'}
             </span>
             <div className="w-7 h-7 rounded-xl bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-xs">
               <Layers className="w-4 h-4" />
@@ -363,7 +422,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <span className="text-2xl font-black text-indigo-900">
             {dynamicClasses.length} / {dynamicSubjects.length}
           </span>
-          <p className="text-[11px] text-slate-500 mt-1">ডাইনামিক ও কাস্টম বিষয় কনফিগারেশন</p>
+          <p className="text-[11px] text-slate-500 mt-1">ডাইনামিক বিষয় কনফিগারেশন</p>
         </div>
       </div>
 
@@ -382,6 +441,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           {pendingCount > 0 && (
             <span className="px-1.5 py-0.5 rounded-full bg-amber-400 text-slate-900 text-[10px] font-black">
               {pendingCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('users')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+            activeTab === 'users'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Users className="w-4 h-4" />
+          {isBangla ? 'লগইনকৃত ইউজার তালিকা' : 'Registered Users'}
+          {registeredUsers.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black">
+              {registeredUsers.length}
             </span>
           )}
         </button>
@@ -877,6 +953,200 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
                 </div>
               ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 5: Registered Users Directory */}
+      {activeTab === 'users' && (
+        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-6">
+          {/* Header & Controls */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <Users className="w-5 h-5 text-purple-600" />
+                {isBangla ? 'নিবন্ধিত ও লগইনকৃত ব্যবহারকারীদের তালিকা' : 'Registered Users Directory'}
+                <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-800 text-xs font-black">
+                  {registeredUsers.length} জন
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isBangla
+                  ? 'যে কেউ তার ব্যক্তিগত জিমেইল দিয়ে লগইন করলে সাথে সাথে এই ক্লাউড তালিকায় যুক্ত হয়।'
+                  : 'Users logging in via Google or Email are automatically recorded here in real-time.'}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder={isBangla ? 'নাম বা ইমেইল দিয়ে খুঁজুন...' : 'Search by name or email...'}
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 text-xs rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 w-48 sm:w-60"
+                />
+              </div>
+
+              <button
+                onClick={refreshUsers}
+                className="p-2 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl border border-slate-200 transition-colors"
+                title={isBangla ? 'ইউজার তালিকা রিফ্রেশ করুন' : 'Refresh Users'}
+              >
+                <RefreshCw className={`w-4 h-4 ${isLoadingUsers ? 'animate-spin text-blue-600' : ''}`} />
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Metrics */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="bg-purple-50/60 border border-purple-200/70 p-3.5 rounded-2xl">
+              <div className="text-[11px] font-bold text-purple-800 uppercase tracking-wider">
+                {isBangla ? 'সর্বমোট নিবন্ধিত ব্যবহারকারী' : 'Total Registered Users'}
+              </div>
+              <div className="text-xl font-black text-purple-950 mt-1">
+                {registeredUsers.length} জন
+              </div>
+            </div>
+
+            <div className="bg-blue-50/60 border border-blue-200/70 p-3.5 rounded-2xl">
+              <div className="text-[11px] font-bold text-blue-800 uppercase tracking-wider">
+                {isBangla ? 'গুগল সাইন-ইন ইউজার' : 'Google Sign-in Users'}
+              </div>
+              <div className="text-xl font-black text-blue-950 mt-1">
+                {registeredUsers.filter((u) => u.providerId?.includes('google') || !u.providerId?.includes('password')).length} জন
+              </div>
+            </div>
+
+            <div className="bg-emerald-50/60 border border-emerald-200/70 p-3.5 rounded-2xl">
+              <div className="text-[11px] font-bold text-emerald-800 uppercase tracking-wider">
+                {isBangla ? 'সবার শেষে সক্রিয় ইউজার' : 'Most Recent Activity'}
+              </div>
+              <div className="text-xs font-bold text-emerald-950 mt-1.5 truncate">
+                {registeredUsers[0]?.email || 'কেউ এখনো লগইন করেনি'}
+              </div>
+            </div>
+          </div>
+
+          {/* Users List */}
+          {registeredUsers.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 border border-dashed border-slate-200 rounded-2xl">
+              <UserCheck className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+              <p className="text-xs font-bold">
+                {isBangla ? 'এখনো কোনো ব্যবহারকারী লগইন করেননি।' : 'No users have logged in yet.'}
+              </p>
+              <p className="text-[11px] text-slate-400 mt-1">
+                {isBangla ? 'যে কেউ সাইন ইন করলেই এখানে দৃশ্যমান হবে।' : 'Anyone signing in will be tracked automatically here.'}
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {registeredUsers
+                .filter((u) => {
+                  if (!userSearchTerm) return true;
+                  const term = userSearchTerm.toLowerCase();
+                  return (
+                    u.email?.toLowerCase().includes(term) ||
+                    u.displayName?.toLowerCase().includes(term)
+                  );
+                })
+                .map((u, idx) => {
+                  const isOwner = u.role === 'OWNER' || u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+                  const isGoogle = u.providerId?.includes('google') || !u.providerId?.includes('password');
+
+                  return (
+                    <div
+                      key={u.uid || idx}
+                      className="p-4 rounded-2xl border border-slate-200 hover:border-blue-300 bg-slate-50/60 hover:bg-white transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-2xs"
+                    >
+                      {/* Left: User identity & avatar */}
+                      <div className="flex items-center gap-3 min-w-0">
+                        {u.photoURL ? (
+                          <img
+                            src={u.photoURL}
+                            alt={u.displayName}
+                            className="w-10 h-10 rounded-full object-cover border border-slate-200 shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm text-white shrink-0 shadow-xs ${
+                              isOwner
+                                ? 'bg-gradient-to-tr from-blue-700 to-indigo-700'
+                                : 'bg-gradient-to-tr from-purple-600 to-pink-600'
+                            }`}
+                          >
+                            {u.displayName ? u.displayName[0].toUpperCase() : u.email ? u.email[0].toUpperCase() : 'U'}
+                          </div>
+                        )}
+
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-900 text-sm truncate">
+                              {u.displayName || 'Authorized User'}
+                            </h4>
+                            {isOwner ? (
+                              <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-black border border-blue-200 flex items-center gap-1">
+                                <ShieldCheck className="w-3 h-3 text-blue-700" />
+                                {isBangla ? 'সুপার অ্যাডমিন' : 'OWNER'}
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-200">
+                                {isBangla ? 'ইউজার' : 'USER'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-xs text-blue-700 font-mono font-medium truncate">
+                              {u.email}
+                            </span>
+                            <span className="text-[10px] text-slate-400">•</span>
+                            <span className="text-[10px] text-slate-500 font-semibold bg-white border border-slate-200 px-1.5 py-0.2 rounded">
+                              {isGoogle ? 'Google Account' : 'Email/Password'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right: Timestamps & Actions */}
+                      <div className="flex flex-wrap items-center justify-between md:justify-end gap-3 pt-2 md:pt-0 border-t md:border-t-0 border-slate-200/70 text-right">
+                        <div className="text-left md:text-right text-[11px] text-slate-500 space-y-0.5">
+                          <div className="flex items-center md:justify-end gap-1 font-medium">
+                            <Clock className="w-3 h-3 text-slate-400" />
+                            <span>{isBangla ? 'সর্বশেষ লগইন:' : 'Last Login:'}</span>
+                            <strong className="text-slate-800">
+                              {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleString('bn-BD') : 'N/A'}
+                            </strong>
+                          </div>
+                          <div className="flex items-center md:justify-end gap-1 text-[10px] text-slate-400">
+                            <Calendar className="w-2.5 h-2.5" />
+                            <span>{isBangla ? 'প্রথম যোগদান:' : 'Joined:'}</span>
+                            <span>
+                              {u.createdAt ? new Date(u.createdAt).toLocaleDateString('bn-BD') : 'N/A'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <a
+                            href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(
+                              u.email
+                            )}&su=${encodeURIComponent('[EduQuestion AI] সম্মানিত ব্যবহারকারীর জন্য বার্তা')}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="px-2.5 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1 transition-colors"
+                            title={isBangla ? 'জিমেইলে বার্তা পাঠান' : 'Send Gmail'}
+                          >
+                            <Mail className="w-3.5 h-3.5 text-blue-600" />
+                            <span className="hidden sm:inline">{isBangla ? 'ইমেইল' : 'Email'}</span>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
             </div>
           )}
         </div>

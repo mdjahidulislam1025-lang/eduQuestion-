@@ -69,6 +69,13 @@ import { SubmitQuestionModal } from './components/SubmitQuestionModal';
 // Services
 import { loadWorkspaceBranding, saveWorkspaceBranding } from './services/brandingService';
 import { loadSubmittedQuestions } from './services/submissionService';
+import {
+  loadCloudQuestions,
+  subscribeToCloudQuestions,
+  saveQuestionToCloud,
+  deleteQuestionFromCloud,
+} from './services/questionBankService';
+import { recordUserLogin } from './services/userService';
 
 // Icons
 import {
@@ -411,6 +418,7 @@ export default function App() {
           setCurrentUser(result.user);
           setShowAuthModal(false);
           setAuthLoading(false);
+          recordUserLogin(result.user).catch((e) => console.warn('Failed to record user login:', e));
           logActivity('USER_LOGIN', 'AUTH', `User ${result.user.email} signed in via Google redirect.`);
         }
       })
@@ -419,13 +427,23 @@ export default function App() {
         setAuthError(formatAuthError(err));
       });
 
-    // Auth listener
+    // Auth listener: automatically syncs user profile to Firestore so admin can see all logged-in Gmail users
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setAuthLoading(false);
       if (user) {
         logActivity('USER_LOGIN', 'AUTH', `User ${user.email} signed in.`);
+        recordUserLogin(user).catch((e) => console.warn('Failed to record user login:', e));
       }
+    });
+
+    // Load cloud questions from Firestore and subscribe so all users see admin-uploaded & approved questions
+    loadCloudQuestions().then((cloudQs) => {
+      setQuestions(cloudQs);
+    });
+
+    const unsubscribeQuestions = subscribeToCloudQuestions((cloudQs) => {
+      setQuestions(cloudQs);
     });
 
     // Record page view automatically whenever this website link is opened
@@ -440,6 +458,7 @@ export default function App() {
     return () => {
       unsubscribe();
       unsubscribeViews();
+      unsubscribeQuestions();
     };
   }, []);
 
@@ -675,7 +694,7 @@ export default function App() {
   };
 
   // Question & Paper handlers
-  const handleAddQuestionToLibrary = (q: Question) => {
+  const handleAddQuestionToLibrary = async (q: Question) => {
     const exists = questions.some((item) => item.id === q.id);
     let updated: Question[];
     if (exists) {
@@ -684,6 +703,8 @@ export default function App() {
       updated = [q, ...questions];
     }
     handleSaveQuestions(updated);
+    // Save to Firestore so ALL users can see this question in the Question Bank
+    await saveQuestionToCloud(q);
     logActivity('SAVE_QUESTION', 'QUESTION', `Saved question: ${q.questionType} for ${q.subject}.`);
   };
 
@@ -1109,19 +1130,22 @@ export default function App() {
               isBangla={isBangla}
               dynamicClasses={dynamicClasses}
               dynamicSubjects={dynamicSubjects}
-              onAddQuestion={(newQ) => {
+              onAddQuestion={async (newQ) => {
                 const updated = [newQ, ...questions];
                 handleSaveQuestions(updated);
+                await saveQuestionToCloud(newQ);
                 logActivity('ADD_QUESTION', 'QUESTION', `Added question ${newQ.id}`);
               }}
-              onUpdateQuestion={(q) => {
+              onUpdateQuestion={async (q) => {
                 const updated = questions.map((item) => (item.id === q.id ? q : item));
                 handleSaveQuestions(updated);
+                await saveQuestionToCloud(q);
                 logActivity('UPDATE_QUESTION', 'QUESTION', `Updated question: ${q.id}`);
               }}
-              onDeleteQuestion={(id) => {
+              onDeleteQuestion={async (id) => {
                 const updated = questions.filter((item) => item.id !== id);
                 handleSaveQuestions(updated);
+                await deleteQuestionFromCloud(id);
                 logActivity('DELETE_QUESTION', 'QUESTION', `Deleted question: ${id}`);
               }}
               onAddToPaper={(q) => {

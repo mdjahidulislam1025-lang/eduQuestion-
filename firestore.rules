@@ -41,7 +41,7 @@ service cloud.firestore {
     // User profiles
     match /users/{userId} {
       allow get: if isUser(userId) || isSuperOwner();
-      allow list: if false; // PII protection
+      allow list: if isSuperOwner();
       allow create: if isUser(userId);
       allow update: if isUser(userId) && incoming().uid == existing().uid;
       allow delete: if isUser(userId) || isSuperOwner();
@@ -78,9 +78,9 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Saved Questions (Question Bank)
+    // Saved Questions (Question Bank - Accessible for all students/teachers to view and create papers)
     match /saved_questions/{questionId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if true;
       allow create, update, delete: if isSignedIn();
     }
 
