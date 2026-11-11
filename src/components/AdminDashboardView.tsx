@@ -8,6 +8,12 @@ import {
   DynamicSubjectItem,
   ExamPresetItem,
   Workspace,
+  WorkspaceMember,
+  WorkspaceInvitation,
+  ActivityLogRecord,
+  UserRole,
+  TextbookKnowledgeItem,
+  BoardExamQuestionRecord,
 } from '../types';
 import {
   loadSubmittedQuestions,
@@ -18,6 +24,7 @@ import {
 } from '../services/submissionService';
 import { saveWorkspaceBranding } from '../services/brandingService';
 import { AdminConfigManager } from './AdminConfigManager';
+import { WorkspaceMembersView } from './WorkspaceMembersView';
 import { MathRenderer } from './MathRenderer';
 import {
   ShieldCheck,
@@ -47,6 +54,11 @@ import {
   Search,
   UserCheck,
   Calendar,
+  Cloud,
+  Server,
+  Download,
+  Database,
+  Shield,
 } from 'lucide-react';
 import {
   subscribeToViewCount,
@@ -74,6 +86,22 @@ interface AdminDashboardViewProps {
   onDeleteSubject: (id: string) => Promise<void>;
   onSaveExamPreset: (item: ExamPresetItem) => Promise<void>;
   onDeleteExamPreset: (id: string) => Promise<void>;
+  // Exclusive Admin Options
+  members?: WorkspaceMember[];
+  invitations?: WorkspaceInvitation[];
+  activityLogs?: ActivityLogRecord[];
+  currentUserRole?: UserRole;
+  currentUserId?: string;
+  onInviteMember?: (email: string, role: 'ADMIN' | 'EDITOR' | 'VIEWER') => void;
+  onChangeRole?: (memberId: string, newRole: UserRole) => void;
+  onRemoveMember?: (memberId: string) => void;
+  onTransferOwnership?: (targetUserId: string) => void;
+  onRestoreBackup?: (data: {
+    questions?: Question[];
+    papers?: QuestionPaper[];
+    textbooks?: TextbookKnowledgeItem[];
+    boardQuestions?: BoardExamQuestionRecord[];
+  }) => void;
 }
 
 export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
@@ -92,16 +120,72 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   onDeleteSubject,
   onSaveExamPreset,
   onDeleteExamPreset,
+  members = [],
+  invitations = [],
+  activityLogs = [],
+  currentUserRole = 'OWNER',
+  currentUserId = 'owner',
+  onInviteMember,
+  onChangeRole,
+  onRemoveMember,
+  onTransferOwnership,
+  onRestoreBackup,
 }) => {
-  const [activeTab, setActiveTab] = useState<'submissions' | 'branding' | 'configs' | 'notifications' | 'users'>(
-    'submissions'
-  );
+  const [activeTab, setActiveTab] = useState<
+    'submissions' | 'users' | 'workspace' | 'backup' | 'branding' | 'configs' | 'notifications'
+  >('submissions');
 
   // Submissions State
   const [submissions, setSubmissions] = useState<SubmittedQuestion[]>([]);
   const [submissionFilter, setSubmissionFilter] = useState<'ALL' | 'PENDING' | 'APPROVED' | 'REJECTED'>('PENDING');
   const [isLoadingSubmissions, setIsLoadingSubmissions] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Backup & Restore State
+  const [restoreMessage, setRestoreMessage] = useState<string | null>(null);
+
+  const handleDownloadFullBackup = () => {
+    const backupPackage = {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      workspace,
+      questions: allQuestions,
+      papers: allPapers,
+      members,
+    };
+
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupPackage, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute('href', dataStr);
+    downloadAnchor.setAttribute('download', `EduQuestionAI_Backup_${new Date().toISOString().slice(0, 10)}.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const parsed = JSON.parse(event.target?.result as string);
+        if (onRestoreBackup && (parsed.questions || parsed.papers)) {
+          onRestoreBackup(parsed);
+          setRestoreMessage(
+            isBangla
+              ? `সফলভাবে ${parsed.questions?.length || 0}টি প্রশ্ন এবং ${parsed.papers?.length || 0}টি পরীক্ষা পত্র রিস্টোর করা হয়েছে!`
+              : `Successfully restored ${parsed.questions?.length || 0} questions and ${parsed.papers?.length || 0} papers!`
+          );
+          setTimeout(() => setRestoreMessage(null), 5000);
+        }
+      } catch (err) {
+        console.error('Invalid backup file', err);
+      }
+    };
+    reader.readAsText(file);
+  };
 
   // Registered Users State
   const [registeredUsers, setRegisteredUsers] = useState<AppUserProfile[]>([]);
@@ -460,6 +544,35 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {registeredUsers.length}
             </span>
           )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('workspace')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+            activeTab === 'workspace'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Building className="w-4 h-4 text-indigo-500" />
+          {isBangla ? 'টিম ও ওয়ার্কস্পেস (RBAC)' : 'Workspace & Members'}
+          {members.length > 0 && (
+            <span className="px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 text-[10px] font-black">
+              {members.length}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => setActiveTab('backup')}
+          className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+            activeTab === 'backup'
+              ? 'bg-blue-600 text-white shadow-sm'
+              : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+          }`}
+        >
+          <Cloud className="w-4 h-4 text-emerald-500" />
+          {isBangla ? 'ব্যাকআপ ও ডেপ্লয়মেন্ট' : 'Backup & Vercel'}
         </button>
 
         <button
@@ -1149,6 +1262,140 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* TAB: Workspace Members & RBAC (Screenshot 1 - Admin Only) */}
+      {activeTab === 'workspace' && (
+        <div className="space-y-4">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 p-4 rounded-2xl flex items-center justify-between text-xs text-blue-900 font-bold">
+            <span className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-blue-700" />
+              {isBangla
+                ? 'আইডিয়াল একাডেমিক ওয়ার্কস্পেস মেম্বার ও ভূমিকাভিত্তিক অ্যাক্সেস নিয়ন্ত্রণ (RBAC)'
+                : 'Workspace Team Members & Role-Based Access Control (RBAC)'}
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] uppercase font-black">
+              🔒 শুধুমাত্র অ্যাডমিন
+            </span>
+          </div>
+
+          <WorkspaceMembersView
+            workspace={workspace}
+            members={members}
+            invitations={invitations}
+            activityLogs={activityLogs}
+            currentUserRole={currentUserRole}
+            currentUserId={currentUserId}
+            onInviteMember={onInviteMember || (() => {})}
+            onChangeRole={onChangeRole || (() => {})}
+            onRemoveMember={onRemoveMember || (() => {})}
+            onTransferOwnership={onTransferOwnership || (() => {})}
+            isBangla={isBangla}
+          />
+        </div>
+      )}
+
+      {/* TAB: Backup & Vercel Deployment (Screenshot 2 - Admin Only) */}
+      {activeTab === 'backup' && (
+        <div className="space-y-6">
+          <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-4 rounded-2xl flex items-center justify-between text-xs text-emerald-900 font-bold">
+            <span className="flex items-center gap-2">
+              <Database className="w-4 h-4 text-emerald-700" />
+              {isBangla
+                ? 'সম্পূর্ণ ডেটা ব্যাকআপ, রিস্টোরেশন এবং Vercel ক্লাউড ডেপ্লয়মেন্ট গাইড'
+                : 'Complete Data Backup, Restore & Vercel Cloud Deployment Guide'}
+            </span>
+            <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[10px] uppercase font-black">
+              🔒 শুধুমাত্র অ্যাডমিন
+            </span>
+          </div>
+
+          {/* Cloud Backup & Data Portability */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <Cloud className="w-4 h-4 text-emerald-600" /> Backup, Export & Restore
+              </h3>
+              <p className="text-xs text-slate-500">
+                Export a complete JSON backup of all questions, exam papers, textbooks, and board archives for offline safety.
+              </p>
+            </div>
+
+            {restoreMessage && (
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>{restoreMessage}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                  Download Full Backup Package
+                </div>
+                <p className="text-xs text-slate-500">
+                  Contains {allQuestions.length} questions, {allPapers.length} papers, and {members.length} team members.
+                </p>
+                <button
+                  type="button"
+                  onClick={handleDownloadFullBackup}
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Download Complete JSON Archive
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                  Restore from Backup File
+                </div>
+                <p className="text-xs text-slate-500">
+                  Select an EduQuestion AI JSON backup file to restore your entire database.
+                </p>
+                <label className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors">
+                  <Upload className="w-4 h-4 text-blue-600" /> Choose Backup File to Restore
+                  <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Vercel Deployment & Production Architecture Guide */}
+          <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-xs space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <Server className="w-4 h-4 text-purple-600" /> Vercel Deployment & Environment Configuration Guide
+              </h3>
+              <p className="text-xs text-slate-500">
+                Everything needed to deploy this application to Vercel or any cloud hosting provider
+              </p>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
+              <p>
+                This application is engineered with a modular full-stack architecture. For <strong>Vercel deployment</strong>:
+              </p>
+
+              <div className="p-4 bg-slate-900 text-slate-200 rounded-xl font-mono space-y-2 overflow-x-auto text-[11px]">
+                <p className="text-cyan-400 font-bold"># Required Environment Variables in Vercel Project Settings:</p>
+                <p>GEMINI_API_KEY="your-google-gemini-api-key"</p>
+                <p>APP_URL="https://your-vercel-domain.vercel.app"</p>
+                <p>NODE_ENV="production"</p>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <p className="font-bold text-slate-800">Deployment Steps on Vercel:</p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                  <li>Push the codebase to your GitHub/GitLab repository.</li>
+                  <li>Import repository into Vercel dashboard.</li>
+                  <li>Add <code>GEMINI_API_KEY</code> in Vercel Settings &gt; Environment Variables.</li>
+                  <li>Build command: <code>npm run build</code>, Output directory: <code>dist</code>.</li>
+                  <li>API proxy routes at <code>/api/*</code> run server-side ensuring total API key security.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

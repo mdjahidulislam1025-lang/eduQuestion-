@@ -30,6 +30,7 @@ interface SettingsViewProps {
     boardQuestions?: BoardExamQuestionRecord[];
   }) => void;
   onSignOut?: () => void;
+  isAdmin?: boolean;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -41,6 +42,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   allBoardQuestions,
   onRestoreBackup,
   onSignOut,
+  isAdmin = false,
 }) => {
   const [profileDraft, setProfileDraft] = useState<UserProfile>(userProfile);
   const [isSaving, setIsSaving] = useState(false);
@@ -230,90 +232,112 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Cloud Backup & Data Portability */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        <div className="border-b border-slate-100 pb-3">
-          <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <Cloud className="w-4 h-4 text-emerald-600" /> Backup, Export & Restore
-          </h3>
-          <p className="text-xs text-slate-500">
-            Export a complete JSON backup of all questions, exam papers, textbooks, and board archives for offline safety.
-          </p>
-        </div>
-
-        {restoreMessage && (
-          <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-xl flex items-center gap-2">
-            <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
-            <span>{restoreMessage}</span>
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-            <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
-              Download Full Backup Package
+      {/* Cloud Backup & Vercel Deployment (Admin Only - Hidden from regular users) */}
+      {isAdmin ? (
+        <>
+          {/* Cloud Backup & Data Portability */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                  <Cloud className="w-4 h-4 text-emerald-600" /> Backup, Export & Restore
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Export a complete JSON backup of all questions, exam papers, textbooks, and board archives for offline safety.
+                </p>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-wider">
+                🔒 শুধুমাত্র অ্যাডমিন (Admin Only)
+              </span>
             </div>
-            <p className="text-xs text-slate-500">
-              Contains {allQuestions.length} questions, {allPapers.length} papers, and {allTextbooks.length} textbook records.
-            </p>
-            <button
-              onClick={handleDownloadFullBackup}
-              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
-            >
-              <Download className="w-4 h-4" /> Download Complete JSON Archive
-            </button>
-          </div>
 
-          <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
-            <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
-              Restore from Backup File
+            {restoreMessage && (
+              <div className="p-3 bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-xl flex items-center gap-2">
+                <CheckCircle className="w-4 h-4 text-blue-600 shrink-0" />
+                <span>{restoreMessage}</span>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                  Download Full Backup Package
+                </div>
+                <p className="text-xs text-slate-500">
+                  Contains {allQuestions.length} questions, {allPapers.length} papers, and {allTextbooks.length} textbook records.
+                </p>
+                <button
+                  onClick={handleDownloadFullBackup}
+                  className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-xs transition-colors"
+                >
+                  <Download className="w-4 h-4" /> Download Complete JSON Archive
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/50 space-y-3">
+                <div className="font-bold text-xs text-slate-700 uppercase tracking-wider">
+                  Restore from Backup File
+                </div>
+                <p className="text-xs text-slate-500">
+                  Select an EduQuestion AI JSON backup file to restore your entire database.
+                </p>
+                <label className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors">
+                  <Upload className="w-4 h-4 text-blue-600" /> Choose Backup File to Restore
+                  <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
+                </label>
+              </div>
             </div>
-            <p className="text-xs text-slate-500">
-              Select an EduQuestion AI JSON backup file to restore your entire database.
-            </p>
-            <label className="w-full py-2.5 px-4 bg-white border border-slate-300 hover:bg-slate-100 text-slate-800 rounded-xl text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs transition-colors">
-              <Upload className="w-4 h-4 text-blue-600" /> Choose Backup File to Restore
-              <input type="file" accept=".json" onChange={handleFileUpload} className="hidden" />
-            </label>
-          </div>
-        </div>
-      </div>
-
-      {/* Vercel Deployment & Production Architecture Guide */}
-      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        <div className="border-b border-slate-100 pb-3">
-          <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
-            <Server className="w-4 h-4 text-purple-600" /> Vercel Deployment & Environment Configuration Guide
-          </h3>
-          <p className="text-xs text-slate-500">
-            Everything needed to deploy this application to Vercel or any cloud hosting provider
-          </p>
-        </div>
-
-        <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
-          <p>
-            This application is engineered with a modular full-stack architecture. For <strong>Vercel deployment</strong>:
-          </p>
-
-          <div className="p-4 bg-slate-900 text-slate-200 rounded-xl font-mono space-y-2 overflow-x-auto text-[11px]">
-            <p className="text-cyan-400 font-bold"># Required Environment Variables in Vercel Project Settings:</p>
-            <p>GEMINI_API_KEY="your-google-gemini-api-key"</p>
-            <p>APP_URL="https://your-vercel-domain.vercel.app"</p>
-            <p>NODE_ENV="production"</p>
           </div>
 
-          <div className="space-y-1.5 pt-2">
-            <p className="font-bold text-slate-800">Deployment Steps on Vercel:</p>
-            <ul className="list-disc pl-5 space-y-1 text-slate-600">
-              <li>Push the codebase to your GitHub/GitLab repository.</li>
-              <li>Import repository into Vercel dashboard.</li>
-              <li>Add <code>GEMINI_API_KEY</code> in Vercel Settings &gt; Environment Variables.</li>
-              <li>Build command: <code>npm run build</code>, Output directory: <code>dist</code>.</li>
-              <li>API proxy routes at <code>/api/*</code> run server-side ensuring total API key security.</li>
-            </ul>
+          {/* Vercel Deployment & Production Architecture Guide */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                  <Server className="w-4 h-4 text-purple-600" /> Vercel Deployment & Environment Configuration Guide
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Everything needed to deploy this application to Vercel or any cloud hosting provider
+                </p>
+              </div>
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase tracking-wider">
+                🔒 শুধুমাত্র অ্যাডমিন (Admin Only)
+              </span>
+            </div>
+
+            <div className="space-y-3 text-xs text-slate-700 leading-relaxed">
+              <p>
+                This application is engineered with a modular full-stack architecture. For <strong>Vercel deployment</strong>:
+              </p>
+
+              <div className="p-4 bg-slate-900 text-slate-200 rounded-xl font-mono space-y-2 overflow-x-auto text-[11px]">
+                <p className="text-cyan-400 font-bold"># Required Environment Variables in Vercel Project Settings:</p>
+                <p>GEMINI_API_KEY="your-google-gemini-api-key"</p>
+                <p>APP_URL="https://your-vercel-domain.vercel.app"</p>
+                <p>NODE_ENV="production"</p>
+              </div>
+
+              <div className="space-y-1.5 pt-2">
+                <p className="font-bold text-slate-800">Deployment Steps on Vercel:</p>
+                <ul className="list-disc pl-5 space-y-1 text-slate-600">
+                  <li>Push the codebase to your GitHub/GitLab repository.</li>
+                  <li>Import repository into Vercel dashboard.</li>
+                  <li>Add <code>GEMINI_API_KEY</code> in Vercel Settings &gt; Environment Variables.</li>
+                  <li>Build command: <code>npm run build</code>, Output directory: <code>dist</code>.</li>
+                  <li>API proxy routes at <code>/api/*</code> run server-side ensuring total API key security.</li>
+                </ul>
+              </div>
+            </div>
           </div>
+        </>
+      ) : (
+        <div className="p-5 rounded-2xl border border-slate-200 bg-slate-50/80 text-xs text-slate-600 flex items-center gap-3">
+          <Shield className="w-5 h-5 text-slate-400 shrink-0" />
+          <span>
+            প্রাতিষ্ঠানিক ডেটা ব্যাকআপ, সিস্টেম ডেপ্লয়মেন্ট কনফিগারেশন ও ওয়ার্কস্পেস মেম্বার সেটিংস শুধুমাত্র প্রধান অ্যাডমিনের জন্য সংরক্ষিত।
+          </span>
         </div>
-      </div>
+      )}
     </div>
   );
 };

@@ -835,10 +835,10 @@ export default function App() {
             icon: ShieldCheck,
             badge: pendingSubmissionsCount > 0 ? pendingSubmissionsCount : undefined,
           },
+          { id: 'settings', label: 'Settings', labelBn: 'সেটিংস', icon: Settings },
         ]
       : []),
     { id: 'profile', label: 'My Profile', labelBn: 'আমার প্রোফাইল', icon: User },
-    { id: 'settings', label: 'Settings', labelBn: 'সেটিংস', icon: Settings },
   ];
 
   return (
@@ -1382,6 +1382,19 @@ export default function App() {
                   await deleteExamPreset(id);
                   setExamPresets((prev) => prev.filter((e) => e.id !== id));
                 }}
+                members={members}
+                invitations={invitations}
+                activityLogs={activityLogs}
+                currentUserRole={currentUserRole}
+                currentUserId={currentUser?.uid || 'owner-jahidul'}
+                onInviteMember={handleInviteMember}
+                onChangeRole={handleChangeMemberRole}
+                onRemoveMember={handleRemoveMember}
+                onTransferOwnership={handleTransferOwnership}
+                onRestoreBackup={(backup) => {
+                  if (backup.questions) handleSaveQuestions(backup.questions);
+                  if (backup.papers) handleSavePapers(backup.papers);
+                }}
               />
             ) : (
               <div className="bg-white p-12 text-center rounded-2xl border border-rose-200 max-w-xl mx-auto shadow-xs">
@@ -1461,84 +1474,109 @@ export default function App() {
           )}
 
           {activeView === 'settings' && (
-            <div className="space-y-8">
-              <SettingsView
-                userProfile={userProfile}
-                onUpdateProfile={async (p) => {
-                  setUserProfile(p);
-                  await handleUpdateWorkspaceBranding({
-                    institutionName: p.institutionName,
-                    institutionAddress: p.institutionAddress,
-                    logoUrl: p.logoUrl,
-                    watermarkText: p.watermarkText,
-                    watermarkOpacity: p.watermarkOpacity,
-                    defaultLanguage: p.defaultLanguage,
-                  });
-                }}
-                allQuestions={questions}
-                allPapers={papers}
-                allTextbooks={[]}
-                allBoardQuestions={[]}
-                onRestoreBackup={(backup) => {
-                  if (backup.questions) handleSaveQuestions(backup.questions);
-                  if (backup.papers) handleSavePapers(backup.papers);
-                }}
-                onSignOut={currentUser ? handleSignOut : undefined}
-              />
+            !isSuperAdminOwner ? (
+              <div className="bg-white p-10 rounded-3xl border border-rose-200 text-center max-w-lg mx-auto my-12 space-y-4 shadow-sm">
+                <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto border border-rose-200">
+                  <Shield className="w-8 h-8" />
+                </div>
+                <h3 className="font-black text-slate-800 text-lg">
+                  {isBangla ? 'অনুমতি নেই — শুধুমাত্র প্রধান অ্যাডমিন' : 'Restricted — Admin Access Only'}
+                </h3>
+                <p className="text-xs text-slate-600 leading-relaxed">
+                  {isBangla
+                    ? `ওয়ার্কস্পেস মেম্বার, ব্যাকআপ ও সিস্টেম সেটিংস শুধুমাত্র প্রধান অ্যাডমিন (${OWNER_EMAIL}) এর জন্য উন্মুক্ত।`
+                    : `Workspace management, backups, and deployment configurations are restricted to ${OWNER_EMAIL}.`}
+                </p>
+                <div className="pt-2">
+                  <button
+                    onClick={() => setActiveView('library')}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+                  >
+                    {isBangla ? 'প্রশ্ন ব্যাংকে ফিরে যান' : 'Go to Question Bank'}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                <SettingsView
+                  isAdmin={isSuperAdminOwner}
+                  userProfile={userProfile}
+                  onUpdateProfile={async (p) => {
+                    setUserProfile(p);
+                    await handleUpdateWorkspaceBranding({
+                      institutionName: p.institutionName,
+                      institutionAddress: p.institutionAddress,
+                      logoUrl: p.logoUrl,
+                      watermarkText: p.watermarkText,
+                      watermarkOpacity: p.watermarkOpacity,
+                      defaultLanguage: p.defaultLanguage,
+                    });
+                  }}
+                  allQuestions={questions}
+                  allPapers={papers}
+                  allTextbooks={[]}
+                  allBoardQuestions={[]}
+                  onRestoreBackup={(backup) => {
+                    if (backup.questions) handleSaveQuestions(backup.questions);
+                    if (backup.papers) handleSavePapers(backup.papers);
+                  }}
+                  onSignOut={currentUser ? handleSignOut : undefined}
+                />
 
-              {isSuperAdminOwner && (
-                <>
-                  <AdminConfigManager
-                    dynamicClasses={dynamicClasses}
-                    dynamicSubjects={dynamicSubjects}
-                    examPresets={examPresets}
-                    onSaveClass={async (cls) => {
-                      await saveDynamicClass(cls);
-                      setDynamicClasses((prev) => {
-                        const exists = prev.some((c) => c.id === cls.id);
-                        return exists ? prev.map((c) => (c.id === cls.id ? cls : c)) : [...prev, cls];
-                      });
-                    }}
-                    onDeleteClass={async (id) => {
-                      await deleteDynamicClass(id);
-                      setDynamicClasses((prev) => prev.filter((c) => c.id !== id));
-                    }}
-                    onSaveSubject={async (sub) => {
-                      await saveDynamicSubject(sub);
-                      setDynamicSubjects((prev) => {
-                        const exists = prev.some((s) => s.id === sub.id);
-                        return exists ? prev.map((s) => (s.id === sub.id ? sub : s)) : [...prev, sub];
-                      });
-                    }}
-                    onDeleteSubject={async (id) => {
-                      await deleteDynamicSubject(id);
-                      setDynamicSubjects((prev) => prev.filter((s) => s.id !== id));
-                    }}
-                    onSaveExamPreset={async (ex) => {
-                      await saveExamPreset(ex);
-                      setExamPresets((prev) => [...prev, ex]);
-                    }}
-                    onDeleteExamPreset={async (id) => {
-                      await deleteExamPreset(id);
-                      setExamPresets((prev) => prev.filter((e) => e.id !== id));
-                    }}
-                  />
-                  <WorkspaceMembersView
-                    workspace={currentWorkspace}
-                    members={members}
-                    invitations={invitations}
-                    activityLogs={activityLogs}
-                    currentUserRole={currentUserRole}
-                    currentUserId={currentUser?.uid || 'owner-jahidul'}
-                    onInviteMember={handleInviteMember}
-                    onChangeRole={handleChangeMemberRole}
-                    onRemoveMember={handleRemoveMember}
-                    onTransferOwnership={handleTransferOwnership}
-                    isBangla={isBangla}
-                  />
-                </>
-              )}
-            </div>
+                {isSuperAdminOwner && (
+                  <>
+                    <AdminConfigManager
+                      dynamicClasses={dynamicClasses}
+                      dynamicSubjects={dynamicSubjects}
+                      examPresets={examPresets}
+                      onSaveClass={async (cls) => {
+                        await saveDynamicClass(cls);
+                        setDynamicClasses((prev) => {
+                          const exists = prev.some((c) => c.id === cls.id);
+                          return exists ? prev.map((c) => (c.id === cls.id ? cls : c)) : [...prev, cls];
+                        });
+                      }}
+                      onDeleteClass={async (id) => {
+                        await deleteDynamicClass(id);
+                        setDynamicClasses((prev) => prev.filter((c) => c.id !== id));
+                      }}
+                      onSaveSubject={async (sub) => {
+                        await saveDynamicSubject(sub);
+                        setDynamicSubjects((prev) => {
+                          const exists = prev.some((s) => s.id === sub.id);
+                          return exists ? prev.map((s) => (s.id === sub.id ? sub : s)) : [...prev, sub];
+                        });
+                      }}
+                      onDeleteSubject={async (id) => {
+                        await deleteDynamicSubject(id);
+                        setDynamicSubjects((prev) => prev.filter((s) => s.id !== id));
+                      }}
+                      onSaveExamPreset={async (ex) => {
+                        await saveExamPreset(ex);
+                        setExamPresets((prev) => [...prev, ex]);
+                      }}
+                      onDeleteExamPreset={async (id) => {
+                        await deleteExamPreset(id);
+                        setExamPresets((prev) => prev.filter((e) => e.id !== id));
+                      }}
+                    />
+                    <WorkspaceMembersView
+                      workspace={currentWorkspace}
+                      members={members}
+                      invitations={invitations}
+                      activityLogs={activityLogs}
+                      currentUserRole={currentUserRole}
+                      currentUserId={currentUser?.uid || 'owner-jahidul'}
+                      onInviteMember={handleInviteMember}
+                      onChangeRole={handleChangeMemberRole}
+                      onRemoveMember={handleRemoveMember}
+                      onTransferOwnership={handleTransferOwnership}
+                      isBangla={isBangla}
+                    />
+                  </>
+                )}
+              </div>
+            )
           )}
         </main>
       </div>
