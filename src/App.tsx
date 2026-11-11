@@ -850,14 +850,6 @@ export default function App() {
                 </span>
               </div>
             </div>
-
-            {/* Creator Attribution Badge in Desktop Header */}
-            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 rounded-full text-[11px] font-semibold text-slate-700 shadow-2xs">
-              <GraduationCap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span>
-                Created by <strong className="text-blue-900 font-bold">JAHIDUL ISLAM</strong> • IIT, University of Dhaka
-              </span>
-            </div>
           </div>
 
           {/* Right Controls: View Counter, Language Switcher, Action, Role, Auth */}
@@ -952,23 +944,6 @@ export default function App() {
         </div>
       </header>
 
-      {/* Mobile Sub-Header Banner with Creator Attribution & Views */}
-      <div className="no-print lg:hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white px-3 py-1.5 text-[11px] flex items-center justify-between border-b border-indigo-900/50 shadow-inner">
-        <div className="flex items-center gap-1.5 truncate">
-          <GraduationCap className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
-          <span className="truncate">
-            Created by <strong className="text-white font-bold">JAHIDUL ISLAM</strong> • IIT, University of Dhaka
-          </span>
-        </div>
-        <div
-          className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-cyan-200 text-[10px] font-bold shrink-0"
-          title="ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে যুক্ত হয়"
-        >
-          <Eye className="w-3 h-3 text-cyan-300" />
-          <span>{formatBengaliNumber(totalViews)} ভিউ</span>
-        </div>
-      </div>
-
       {/* Main Layout Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex gap-6">
         {/* Desktop Sidebar Navigation */}
@@ -1054,20 +1029,6 @@ export default function App() {
                   </span>
                 </div>
               </div>
-
-              {/* Creator Attribution Card */}
-              <div className="p-3 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xs">
-                <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-[10px] uppercase tracking-wider mb-1">
-                  <GraduationCap className="w-3.5 h-3.5 shrink-0" />
-                  <span>Created by</span>
-                </div>
-                <div className="font-extrabold text-white text-xs tracking-tight">
-                  JAHIDUL ISLAM
-                </div>
-                <div className="text-[11px] text-slate-300 font-medium mt-0.5">
-                  IIT, University of Dhaka
-                </div>
-              </div>
             </div>
           </div>
         </aside>
@@ -1132,15 +1093,6 @@ export default function App() {
                     <span>{isBangla ? 'ওয়েবসাইট ভিউ:' : 'Site Views:'}</span>
                   </div>
                   <span className="font-black text-sm">{formatBengaliNumber(totalViews)}</span>
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-900 text-white text-[11px]">
-                  <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-[10px] uppercase">
-                    <GraduationCap className="w-3.5 h-3.5" />
-                    <span>Created by</span>
-                  </div>
-                  <div className="font-extrabold text-white text-xs mt-0.5">JAHIDUL ISLAM</div>
-                  <div className="text-[10px] text-slate-300">IIT, University of Dhaka</div>
                 </div>
               </div>
             </div>
