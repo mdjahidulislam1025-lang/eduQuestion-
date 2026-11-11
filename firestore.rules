@@ -168,5 +168,12 @@ service cloud.firestore {
       allow create: if true;
       allow get, list, update, delete: if isAdminOrOwner();
     }
+
+    // Public Site Stats & View Counter (accessible to all visitors)
+    match /site_stats/{statId} {
+      allow get: if true;
+      allow create, update: if true;
+      allow delete: if isAdminOrOwner();
+    }
   }
 }

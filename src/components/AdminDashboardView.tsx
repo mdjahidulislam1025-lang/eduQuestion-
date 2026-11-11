@@ -41,7 +41,13 @@ import {
   Send,
   Trash2,
   Upload,
+  Eye,
+  GraduationCap,
 } from 'lucide-react';
+import {
+  subscribeToViewCount,
+  formatBengaliNumber,
+} from '../services/siteStatsService';
 
 interface AdminDashboardViewProps {
   allQuestions: Question[];
@@ -127,9 +133,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
+  // Site Views Counter State
+  const [siteViews, setSiteViews] = useState<number>(1025);
+
   useEffect(() => {
     refreshSubmissions();
     refreshNotifications();
+    const unsub = subscribeToViewCount((count) => {
+      setSiteViews(count);
+    });
+    return () => unsub();
   }, []);
 
   // Filtered Submissions
@@ -235,10 +248,46 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </a>
           </div>
         </div>
+
+        {/* Creator Attribution Ribbon */}
+        <div className="mt-4 pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <GraduationCap className="w-4 h-4 text-cyan-300" />
+            <span>Created by <strong className="text-white font-bold">JAHIDUL ISLAM</strong></span>
+            <span className="text-blue-300">•</span>
+            <span className="text-blue-200">IIT, University of Dhaka</span>
+          </div>
+          <div className="flex items-center gap-2 text-slate-300 text-[11px]">
+            <span>মোট ভিজিটর ভিউ: <strong className="text-cyan-300 font-bold">{formatBengaliNumber(siteViews)} জন</strong></span>
+          </div>
+        </div>
       </div>
 
       {/* Metric Summary Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        {/* Live Site Visitors / Views */}
+        <div className="bg-gradient-to-br from-indigo-50/70 to-blue-50/80 p-4 rounded-2xl border border-indigo-200/80 shadow-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-indigo-900">
+              {isBangla ? 'ওয়েবসাইট মোট ভিউ' : 'Total Site Views'}
+            </span>
+            <div className="w-7 h-7 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
+              <Eye className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-2xl font-black text-indigo-950">{formatBengaliNumber(siteViews)}</span>
+            <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+              </span>
+              লাইভ
+            </span>
+          </div>
+          <p className="text-[11px] text-slate-500 mt-1">রিয়েল-টাইম ভিজিটর কাউন্টার</p>
+        </div>
+
         {/* Pending Submissions */}
         <div
           onClick={() => setActiveTab('submissions')}

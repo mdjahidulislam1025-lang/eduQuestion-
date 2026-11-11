@@ -155,6 +155,19 @@
         "createdAt": { "type": "string" }
       },
       "required": ["id", "bookName", "classLevel", "subject", "editionYear"]
+    },
+    "SiteStats": {
+      "title": "SiteStats",
+      "description": "Public website analytics and view counter",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "totalViews": { "type": "number" },
+        "uniqueVisitors": { "type": "number" },
+        "lastVisitedAt": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "totalViews"]
     }
   },
   "firestore": {
@@ -193,6 +206,10 @@
     "/nctb_books/{bookId}": {
       "schema": "NCTBBook",
       "description": "NCTB textbook records in repository"
+    },
+    "/site_stats/{statId}": {
+      "schema": "SiteStats",
+      "description": "Persistent visitor and page view counter"
     }
   }
 }

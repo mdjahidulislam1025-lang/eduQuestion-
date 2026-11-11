@@ -94,8 +94,14 @@ import {
   KeyRound,
   CheckCircle2,
   ExternalLink,
-  Upload
+  Upload,
+  GraduationCap
 } from 'lucide-react';
+import {
+  recordPageView,
+  subscribeToViewCount,
+  formatBengaliNumber
+} from './services/siteStatsService';
 
 const OWNER_EMAIL = 'mdjahidulislam1025@gmail.com';
 
@@ -119,6 +125,9 @@ export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [submitQuestionModalOpen, setSubmitQuestionModalOpen] = useState(false);
   const [pendingSubmissionsCount, setPendingSubmissionsCount] = useState(0);
+
+  // Live Website Visitor & View Counter State (Automatically recorded on every link open)
+  const [totalViews, setTotalViews] = useState<number>(1025);
 
   // Workspace & RBAC State
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace>({
@@ -419,7 +428,19 @@ export default function App() {
       }
     });
 
-    return () => unsubscribe();
+    // Record page view automatically whenever this website link is opened
+    recordPageView().then((count) => {
+      setTotalViews(count);
+    });
+
+    const unsubscribeViews = subscribeToViewCount((count) => {
+      setTotalViews(count);
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeViews();
+    };
   }, []);
 
   // In-app browser detection (Facebook/Messenger/Instagram/WhatsApp webview)
@@ -829,10 +850,33 @@ export default function App() {
                 </span>
               </div>
             </div>
+
+            {/* Creator Attribution Badge in Desktop Header */}
+            <div className="hidden xl:flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200/70 rounded-full text-[11px] font-semibold text-slate-700 shadow-2xs">
+              <GraduationCap className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span>
+                Created by <strong className="text-blue-900 font-bold">JAHIDUL ISLAM</strong> • IIT, University of Dhaka
+              </span>
+            </div>
           </div>
 
-          {/* Right Controls: Language Switcher, Action, Role, Auth */}
+          {/* Right Controls: View Counter, Language Switcher, Action, Role, Auth */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {/* Live Website View Counter (Automatically tracked on every link open) */}
+            <div
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-800 shadow-2xs select-none"
+              title={isBangla ? 'ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে যুক্ত হয়' : 'Website views automatically recorded on link open'}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+              <span className="text-[11px] font-extrabold text-slate-900">
+                {isBangla ? `ভিউ: ${formatBengaliNumber(totalViews)}` : `Views: ${totalViews.toLocaleString()}`}
+              </span>
+            </div>
+
             {/* Bilingual Toggle Button (BN / EN) */}
             <button
               onClick={() => setIsBangla(!isBangla)}
@@ -908,6 +952,23 @@ export default function App() {
         </div>
       </header>
 
+      {/* Mobile Sub-Header Banner with Creator Attribution & Views */}
+      <div className="no-print lg:hidden bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white px-3 py-1.5 text-[11px] flex items-center justify-between border-b border-indigo-900/50 shadow-inner">
+        <div className="flex items-center gap-1.5 truncate">
+          <GraduationCap className="w-3.5 h-3.5 text-cyan-300 shrink-0" />
+          <span className="truncate">
+            Created by <strong className="text-white font-bold">JAHIDUL ISLAM</strong> • IIT, University of Dhaka
+          </span>
+        </div>
+        <div
+          className="flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-white/10 text-cyan-200 text-[10px] font-bold shrink-0"
+          title="ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে যুক্ত হয়"
+        >
+          <Eye className="w-3 h-3 text-cyan-300" />
+          <span>{formatBengaliNumber(totalViews)} ভিউ</span>
+        </div>
+      </div>
+
       {/* Main Layout Grid */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex gap-6">
         {/* Desktop Sidebar Navigation */}
@@ -953,7 +1014,7 @@ export default function App() {
             })}
 
             {/* Quick Stats Widget */}
-            <div className="pt-4 mt-3 border-t border-slate-100 px-3 text-xs space-y-1.5">
+            <div className="pt-3 mt-3 border-t border-slate-100 px-3 text-xs space-y-1.5">
               <div className="flex justify-between text-slate-500">
                 <span>{isBangla ? 'সংরক্ষিত প্রশ্ন:' : 'Saved Questions:'}</span>
                 <span className="font-bold text-slate-800">{questions.length}</span>
@@ -963,16 +1024,66 @@ export default function App() {
                 <span className="font-bold text-blue-700">{papers.length}</span>
               </div>
             </div>
+
+            {/* Creator Attribution & Interactive Live View Counter Widget */}
+            <div className="pt-3 mt-3 border-t border-slate-100 space-y-2.5">
+              {/* Automatic Live View Counter Display */}
+              <div
+                className="w-full text-left p-3 rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-blue-50/50 shadow-2xs"
+                title="ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে কাউন্ট হয়"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-extrabold tracking-wide text-blue-700 uppercase">
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                    </span>
+                    {isBangla ? 'ওয়েবসাইট ভিউ' : 'Live Site Views'}
+                  </div>
+                  <span className="text-[9px] text-emerald-700 font-extrabold bg-emerald-100 border border-emerald-300 px-1.5 py-0.5 rounded-full">
+                    স্বয়ংক্রিয়
+                  </span>
+                </div>
+                <div className="flex items-baseline justify-between">
+                  <div className="text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
+                    <Eye className="w-4 h-4 text-blue-600" />
+                    <span>{formatBengaliNumber(totalViews)}</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500 font-medium">
+                    {isBangla ? 'জন দেখেছেন' : 'total visitors'}
+                  </span>
+                </div>
+              </div>
+
+              {/* Creator Attribution Card */}
+              <div className="p-3 rounded-2xl bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xs">
+                <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-[10px] uppercase tracking-wider mb-1">
+                  <GraduationCap className="w-3.5 h-3.5 shrink-0" />
+                  <span>Created by</span>
+                </div>
+                <div className="font-extrabold text-white text-xs tracking-tight">
+                  JAHIDUL ISLAM
+                </div>
+                <div className="text-[11px] text-slate-300 font-medium mt-0.5">
+                  IIT, University of Dhaka
+                </div>
+              </div>
+            </div>
           </div>
         </aside>
 
         {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
           <div className="no-print lg:hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex">
-            <div className="w-72 bg-white h-full p-5 shadow-2xl flex flex-col justify-between">
+            <div className="w-72 bg-white h-full p-5 shadow-2xl flex flex-col justify-between overflow-y-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                  <span className="font-bold text-slate-900 text-base">EduQuestion AI</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <span className="font-bold text-slate-900 text-base">EduQuestion AI</span>
+                  </div>
                   <button onClick={() => setMobileMenuOpen(false)} className="text-slate-400 p-1">
                     <X className="w-5 h-5" />
                   </button>
@@ -1013,8 +1124,24 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-slate-100 text-xs text-slate-500 text-center">
-                EduQuestion AI • NCTB Classes 8, 9, 10
+              {/* Mobile Drawer Footer: View Counter & Creator Attribution */}
+              <div className="pt-4 border-t border-slate-100 space-y-2 mt-4">
+                <div className="w-full flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-bold">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4 text-blue-600" />
+                    <span>{isBangla ? 'ওয়েবসাইট ভিউ:' : 'Site Views:'}</span>
+                  </div>
+                  <span className="font-black text-sm">{formatBengaliNumber(totalViews)}</span>
+                </div>
+
+                <div className="p-3 rounded-xl bg-slate-900 text-white text-[11px]">
+                  <div className="flex items-center gap-1.5 text-cyan-300 font-bold text-[10px] uppercase">
+                    <GraduationCap className="w-3.5 h-3.5" />
+                    <span>Created by</span>
+                  </div>
+                  <div className="font-extrabold text-white text-xs mt-0.5">JAHIDUL ISLAM</div>
+                  <div className="text-[10px] text-slate-300">IIT, University of Dhaka</div>
+                </div>
               </div>
             </div>
             <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
@@ -1677,6 +1804,52 @@ export default function App() {
         currentUser={currentUser}
         isBangla={isBangla}
       />
+
+      {/* Universal Academic Footer with Creator Attribution & Live Clickable View Counter */}
+      <footer className="no-print mt-auto border-t border-slate-200 bg-white py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+          {/* Creator Attribution */}
+          <div className="flex items-center gap-3 text-center md:text-left">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+              <GraduationCap className="w-5 h-5 text-cyan-200" />
+            </div>
+            <div>
+              <div className="text-xs sm:text-sm font-bold text-slate-900 flex items-center gap-1.5 justify-center md:justify-start">
+                <span>Created by <strong className="text-blue-700 font-extrabold">JAHIDUL ISLAM</strong></span>
+                <span className="text-slate-300 hidden sm:inline">•</span>
+                <span className="text-slate-700 font-semibold hidden sm:inline">IIT, University of Dhaka</span>
+              </div>
+              <div className="text-[11px] text-slate-500 font-medium">
+                Institute of Information Technology (IIT), University of Dhaka • EduQuestion AI System
+              </div>
+            </div>
+          </div>
+
+          {/* Live Automatic View Counter & Action Button */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <div
+              className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs select-none"
+              title={isBangla ? 'ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে ক্লাউডে যুক্ত হয়' : 'Website views automatically recorded on link open'}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+              </span>
+              <Eye className="w-4 h-4 text-blue-600" />
+              <span className="text-slate-600">{isBangla ? 'সর্বমোট ভিউ:' : 'Total Site Views:'}</span>
+              <span className="text-blue-900 font-black text-sm">{formatBengaliNumber(totalViews)}</span>
+            </div>
+
+            <button
+              onClick={() => setSubmitQuestionModalOpen(true)}
+              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-colors shadow-2xs"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{isBangla ? 'প্রশ্ন সাবমিট করুন' : 'Submit Question'}</span>
+            </button>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
