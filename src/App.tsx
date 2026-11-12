@@ -1872,6 +1872,11 @@ export default function App() {
         dynamicSubjects={dynamicSubjects}
         currentUser={currentUser}
         isBangla={isBangla}
+        onQuestionSubmitted={(newQ) => {
+          const updated = [newQ, ...questions];
+          handleSaveQuestions(updated);
+          logActivity('ADD_QUESTION', 'QUESTION', `Added question ${newQ.id}`);
+        }}
       />
 
       {/* Universal Academic Footer with Creator Attribution & Live Clickable View Counter */}

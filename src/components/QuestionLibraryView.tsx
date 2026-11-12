@@ -21,6 +21,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  Image as ImageIcon,
+  Upload,
+  Eye,
 } from 'lucide-react';
 
 export const STANDARD_BOARDS = [
@@ -112,6 +115,14 @@ interface QuestionLibraryViewProps {
   onBulkAddToPaper?: (questions: Question[]) => void;
 }
 
+function cleanOptionText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^[\s\•\-\*]*[\(]?\s*[কখগঘabcdABCD1234]\s*[\)\.\:\-]\s*/, '')
+    .replace(/^[\s\)]+\s*/, '')
+    .trim();
+}
+
 export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   questions,
   currentUserRole = 'OWNER',
@@ -169,6 +180,28 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   const [newPartB, setNewPartB] = useState('');
   const [newPartC, setNewPartC] = useState('');
   const [newPartD, setNewPartD] = useState('');
+
+  // Diagram / Image Upload
+  const [newDiagramUrl, setNewDiagramUrl] = useState('');
+  const [newDiagramCaption, setNewDiagramCaption] = useState('');
+  const [showDiagramSection, setShowDiagramSection] = useState(false);
+
+  const handleDiagramUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const res = ev.target?.result as string;
+      if (res) {
+        setNewDiagramUrl(res);
+        setShowDiagramSection(true);
+        if (!newDiagramCaption) {
+          setNewDiagramCaption('চিত্র: প্রশ্নের উদ্দীপক বা চিত্র');
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   // Quick Year Stepper: jumps to previous year or next year
   const stepYear = (delta: number) => {
@@ -296,7 +329,9 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
     const finalSubject = (customSubjectMode ? customSubjectText : newSubject).trim() || 'Physics';
     const finalChapter = (customChapterMode ? customChapterText : newChapter).trim() || '১ম অধ্যায়';
     const finalBoard = (customBoardMode ? customBoardText : newBoard).trim();
-    const finalYear = (customYearMode ? customYearText : newYear).trim() || '2024';
+    const finalYear = (customYearMode ? customYearText : newYear).trim() || '2025';
+
+    const cleanedOptions = newOptions.map(cleanOptionText);
 
     const newQ: Question = {
       id: `q-${Date.now()}`,
@@ -306,6 +341,8 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
       questionType: newType,
       questionText: newType === 'CQ' ? 'সৃজনশীল প্রশ্ন' : newQuestionText.trim(),
       stimulus: newType === 'CQ' ? newStimulus.trim() : undefined,
+      diagramUrl: newDiagramUrl.trim() || undefined,
+      diagramCaption: newDiagramCaption.trim() || undefined,
       cqParts:
         newType === 'CQ'
           ? {
@@ -315,9 +352,14 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
               partD: { question: newPartD.trim(), marks: 4 },
             }
           : undefined,
-      options: newType === 'MCQ' ? newOptions : undefined,
+      options: newType === 'MCQ' ? cleanedOptions : undefined,
       correctOptionIndex: newType === 'MCQ' ? newCorrectIdx : undefined,
-      correctAnswer: newType === 'SQ' ? newAnswer.trim() : undefined,
+      correctAnswer:
+        newType === 'MCQ'
+          ? cleanedOptions[newCorrectIdx] || ['ক', 'খ', 'গ', 'ঘ'][newCorrectIdx]
+          : newType === 'SQ'
+          ? newAnswer.trim()
+          : undefined,
       marks: newType === 'CQ' ? 10 : Number(newMarks) || 1,
       difficulty: 'Medium',
       sourceType: 'NCTB_BOARD_PATTERN',
@@ -342,6 +384,9 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
     setNewPartD('');
     setNewOptions(['', '', '', '']);
     setNewAnswer('');
+    setNewDiagramUrl('');
+    setNewDiagramCaption('');
+    setShowDiagramSection(false);
   };
 
   return (
@@ -377,7 +422,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             </button>
           )}
 
-          {isAdminOrOwner && onAddQuestion && (
+          {onAddQuestion && (
             <button
               onClick={() => setShowAddModal(true)}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
@@ -989,30 +1034,116 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                     />
                   </div>
 
-                  {newType === 'MCQ' && (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                      {['ক', 'খ', 'গ', 'ঘ'].map((label, idx) => (
-                        <div key={idx} className="flex items-center gap-2">
+                  {/* Diagram / Image Upload Section */}
+                  <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                        <ImageIcon className="w-4 h-4 text-blue-600" />
+                        <span>চিত্র / ডায়াগ্রাম (ঐচ্ছিক)</span>
+                      </label>
+                      {!showDiagramSection && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDiagramSection(true)}
+                          className="text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-0.5 rounded-lg border border-blue-200"
+                        >
+                          + চিত্র যোগ করুন
+                        </button>
+                      )}
+                    </div>
+
+                    {showDiagramSection && (
+                      <div className="space-y-2 pt-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <label className="cursor-pointer inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors">
+                            <Upload className="w-3.5 h-3.5" />
+                            <span>ছবি আপলোড</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleDiagramUpload}
+                              className="hidden"
+                            />
+                          </label>
                           <input
-                            type="radio"
-                            name="correctOpt"
-                            checked={newCorrectIdx === idx}
-                            onChange={() => setNewCorrectIdx(idx)}
+                            type="url"
+                            value={newDiagramUrl.startsWith('data:') ? '' : newDiagramUrl}
+                            onChange={(e) => setNewDiagramUrl(e.target.value)}
+                            placeholder="ছবির লিংক / URL"
+                            className="flex-1 text-xs border border-slate-300 rounded-xl p-1.5 bg-white"
                           />
-                          <input
-                            type="text"
-                            required
-                            value={newOptions[idx]}
-                            onChange={(e) => {
-                              const copy = [...newOptions];
-                              copy[idx] = e.target.value;
-                              setNewOptions(copy);
-                            }}
-                            placeholder={`অপশন ${label}`}
-                            className="flex-1 px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-bangla"
-                          />
+                          {newDiagramUrl && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setNewDiagramUrl('');
+                                setNewDiagramCaption('');
+                              }}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg"
+                              title="মুছে ফেলুন"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
-                      ))}
+                        <input
+                          type="text"
+                          value={newDiagramCaption}
+                          onChange={(e) => setNewDiagramCaption(e.target.value)}
+                          placeholder="চিত্রের বিবরণ (যেমন: চিত্র ১: চল তড়িৎ বর্তনী)"
+                          className="w-full text-xs border border-slate-300 rounded-xl p-1.5 bg-white"
+                        />
+                        {newDiagramUrl && (
+                          <div className="p-2 bg-white rounded-xl border border-slate-200 flex flex-col items-center">
+                            <img src={newDiagramUrl} alt="Diagram" className="max-h-36 object-contain rounded-md" />
+                            {newDiagramCaption && (
+                              <span className="text-[10px] text-slate-500 italic mt-0.5">{newDiagramCaption}</span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {newType === 'MCQ' && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-bold text-slate-700 flex items-center justify-between">
+                        <span>চারটি বিকল্প ও সঠিক উত্তর নির্বাচন:</span>
+                        <span className="text-[10px] text-slate-500">(সঠিক উত্তরে রেডিও সিলেক্ট করুন)</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {['ক', 'খ', 'গ', 'ঘ'].map((label, idx) => (
+                          <div
+                            key={idx}
+                            className={`flex items-center gap-2 p-2 rounded-xl border transition-colors ${
+                              newCorrectIdx === idx
+                                ? 'bg-emerald-50/70 border-emerald-300'
+                                : 'bg-slate-50 border-slate-200'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name="correctOpt"
+                              checked={newCorrectIdx === idx}
+                              onChange={() => setNewCorrectIdx(idx)}
+                              className="w-4 h-4 text-emerald-600 cursor-pointer"
+                            />
+                            <span className="font-bold text-xs text-slate-700">{label})</span>
+                            <input
+                              type="text"
+                              required
+                              value={newOptions[idx]}
+                              onChange={(e) => {
+                                const copy = [...newOptions];
+                                copy[idx] = cleanOptionText(e.target.value);
+                                setNewOptions(copy);
+                              }}
+                              placeholder={`অপশন ${label} (যেমন: 10⁻¹⁸ m)`}
+                              className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-bangla bg-white"
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
 
@@ -1025,6 +1156,45 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                         onChange={(e) => setNewAnswer(e.target.value)}
                         className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bangla"
                       />
+                    </div>
+                  )}
+
+                  {/* Live Math & Diagram Preview in Modal */}
+                  {(newQuestionText.trim() || newDiagramUrl || newOptions.some(Boolean)) && (
+                    <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-xl space-y-1.5">
+                      <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                        <Eye className="w-3.5 h-3.5 text-blue-600" />
+                        <span>লাইভ প্রিভিউ (LaTeX / Math Formula Rendered):</span>
+                      </div>
+                      <div className="bg-white p-2.5 rounded-lg border border-blue-100 text-xs text-slate-800 space-y-2">
+                        {newQuestionText && (
+                          <div className="font-medium">
+                            <MathRenderer content={newQuestionText} />
+                          </div>
+                        )}
+                        {newDiagramUrl && (
+                          <div className="flex flex-col items-center py-1">
+                            <img src={newDiagramUrl} alt="Diagram" className="max-h-32 object-contain rounded-md" />
+                            {newDiagramCaption && (
+                              <span className="text-[10px] text-slate-500 italic mt-0.5">{newDiagramCaption}</span>
+                            )}
+                          </div>
+                        )}
+                        {newType === 'MCQ' && (
+                          <div className="grid grid-cols-2 gap-1 pt-1 text-slate-700">
+                            {newOptions.map((opt, idx) =>
+                              opt ? (
+                                <div
+                                  key={idx}
+                                  className={newCorrectIdx === idx ? 'text-emerald-700 font-bold' : ''}
+                                >
+                                  {['ক', 'খ', 'গ', 'ঘ'][idx]}) <MathRenderer content={cleanOptionText(opt)} />
+                                </div>
+                              ) : null
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

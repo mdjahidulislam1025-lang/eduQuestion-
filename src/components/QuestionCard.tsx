@@ -459,13 +459,22 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             </div>
           )}
 
-          {/* Diagram Display if present */}
-          {question.diagramSvg && (
-            <div className="my-3 flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl">
-              <div
-                className="max-w-full max-h-[220px]"
-                dangerouslySetInnerHTML={{ __html: question.diagramSvg }}
-              />
+          {/* Diagram Display if present (SVG or Image URL) */}
+          {(question.diagramSvg || question.diagramUrl) && (
+            <div className="my-3 flex flex-col items-center justify-center p-3 bg-white border border-slate-200 rounded-xl shadow-2xs">
+              {question.diagramSvg && (
+                <div
+                  className="max-w-full max-h-[220px]"
+                  dangerouslySetInnerHTML={{ __html: question.diagramSvg }}
+                />
+              )}
+              {question.diagramUrl && (
+                <img
+                  src={question.diagramUrl}
+                  alt={question.diagramCaption || 'Question Diagram'}
+                  className="max-w-full max-h-[220px] object-contain rounded-lg"
+                />
+              )}
               {question.diagramCaption && (
                 <p className="text-xs text-slate-500 italic mt-2 text-center">{question.diagramCaption}</p>
               )}

@@ -167,6 +167,8 @@ export async function approveSubmittedQuestion(
     options: submitted.options,
     correctAnswer: submitted.correctAnswer,
     cqParts: submitted.cqParts,
+    diagramUrl: submitted.diagramUrl,
+    diagramCaption: submitted.diagramCaption,
     marks: submitted.marks || (submitted.questionType === 'CQ' ? 10 : 1),
     difficulty: 'Medium',
     sourceType: 'COMMUNITY',

@@ -1,11 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   DynamicClassItem,
   DynamicSubjectItem,
   QuestionType,
   SubmittedQuestion,
+  Question,
 } from '../types';
 import { submitPublicQuestion, ADMIN_EMAIL } from '../services/submissionService';
+import { saveQuestionToCloud } from '../services/questionBankService';
+import { MathRenderer } from './MathRenderer';
 import {
   X,
   Upload,
@@ -19,6 +22,10 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar,
+  Image as ImageIcon,
+  Sparkles,
+  Trash2,
+  Eye,
 } from 'lucide-react';
 import {
   STANDARD_BOARDS,
@@ -33,6 +40,58 @@ interface SubmitQuestionModalProps {
   dynamicSubjects: DynamicSubjectItem[];
   currentUser?: { displayName?: string | null; email?: string | null } | null;
   isBangla?: boolean;
+  onQuestionSubmitted?: (question: Question) => void;
+}
+
+/**
+ * Strips accidental pasted prefixes like "ক)", "খ)", ")", "a)", "• ক)"
+ */
+function cleanOptionText(raw: string): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^[\s\•\-\*]*[\(]?\s*[কখগঘabcdABCD1234]\s*[\)\.\:\-]\s*/, '')
+    .replace(/^[\s\)]+\s*/, '')
+    .trim();
+}
+
+/**
+ * Parses raw copied MCQ text into individual fields
+ */
+function parseRawMcqText(text: string) {
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  let qText = '';
+  let optA = '';
+  let optB = '';
+  let optC = '';
+  let optD = '';
+  let correct = '';
+  let expl = '';
+
+  for (const line of lines) {
+    if (/^(সঠিক\s*উত্তর|উত্তর|Answer|Ans)[\s\:\-]+/i.test(line)) {
+      const parts = line.replace(/^(সঠিক\s*উত্তর|উত্তর|Answer|Ans)[\s\:\-]+/i, '').trim();
+      correct = parts;
+      if (parts.includes('(') && parts.includes(')')) {
+        const matchExpl = parts.match(/\((.*?)\)/);
+        if (matchExpl) {
+          expl = matchExpl[1];
+        }
+      }
+    } else if (/^[\•\-\*]?\s*[\(]?\s*(ক|a|1)[\)\.\:\-]/i.test(line)) {
+      optA = cleanOptionText(line);
+    } else if (/^[\•\-\*]?\s*[\(]?\s*(খ|b|2)[\)\.\:\-]/i.test(line)) {
+      optB = cleanOptionText(line);
+    } else if (/^[\•\-\*]?\s*[\(]?\s*(গ|c|3)[\)\.\:\-]/i.test(line)) {
+      optC = cleanOptionText(line);
+    } else if (/^[\•\-\*]?\s*[\(]?\s*(ঘ|d|4)[\)\.\:\-]/i.test(line)) {
+      optD = cleanOptionText(line);
+    } else if (!qText && !line.includes('MCQ') && !line.includes('অধ্যায়') && !line.includes('বোর্ড')) {
+      // Strip leading serial number e.g. "১. " or "1. "
+      qText = line.replace(/^[\d১-৯]+[\.\:\-]\s*/, '').trim();
+    }
+  }
+
+  return { qText, optA, optB, optC, optD, correct, expl };
 }
 
 export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
@@ -42,6 +101,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
   dynamicSubjects,
   currentUser,
   isBangla = true,
+  onQuestionSubmitted,
 }) => {
   const [submitterName, setSubmitterName] = useState(currentUser?.displayName || '');
   const [submitterEmail, setSubmitterEmail] = useState(currentUser?.email || '');
@@ -55,29 +115,10 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
   const [board, setBoard] = useState('Dhaka Board');
   const [customBoardMode, setCustomBoardMode] = useState(false);
   const [customBoardText, setCustomBoardText] = useState('');
-  const [year, setYear] = useState('2024');
+  const [year, setYear] = useState('2025');
   const [customYearMode, setCustomYearMode] = useState(false);
   const [customYearText, setCustomYearText] = useState('');
   const [questionType, setQuestionType] = useState<QuestionType>('MCQ');
-
-  const stepYear = (delta: number) => {
-    const currentNum = parseInt(year, 10);
-    if (!isNaN(currentNum)) {
-      setYear(String(currentNum + delta));
-      setCustomYearMode(false);
-    } else {
-      setYear('2024');
-    }
-  };
-
-  React.useEffect(() => {
-    if (currentUser?.email) {
-      setSubmitterEmail(currentUser.email);
-    }
-    if (currentUser?.displayName) {
-      setSubmitterName(currentUser.displayName);
-    }
-  }, [currentUser, isOpen]);
 
   // Question details
   const [questionText, setQuestionText] = useState('');
@@ -86,7 +127,17 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
   const [option2, setOption2] = useState('');
   const [option3, setOption3] = useState('');
   const [option4, setOption4] = useState('');
+  const [correctOptionIdx, setCorrectOptionIdx] = useState<number>(0);
   const [correctAnswer, setCorrectAnswer] = useState('');
+
+  // Diagram / Image Upload
+  const [diagramUrl, setDiagramUrl] = useState('');
+  const [diagramCaption, setDiagramCaption] = useState('');
+  const [showDiagramInput, setShowDiagramInput] = useState(false);
+
+  // Fast paste helper
+  const [showQuickParser, setShowQuickParser] = useState(false);
+  const [rawTextToParse, setRawTextToParse] = useState('');
 
   // CQ parts
   const [partA, setPartA] = useState('');
@@ -102,6 +153,69 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
     gmailComposeUrl: string;
   } | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const stepYear = (delta: number) => {
+    const currentNum = parseInt(year, 10);
+    if (!isNaN(currentNum)) {
+      setYear(String(currentNum + delta));
+      setCustomYearMode(false);
+    } else {
+      setYear('2025');
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser?.email) {
+      setSubmitterEmail(currentUser.email);
+    }
+    if (currentUser?.displayName) {
+      setSubmitterName(currentUser.displayName);
+    }
+  }, [currentUser, isOpen]);
+
+  // Diagram file upload handler
+  const handleDiagramFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMessage(isBangla ? 'অনুগ্রহ করে শুধুমাত্র ছবি ফাইল নির্বাচন করুন।' : 'Please select an image file.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (uploadEvent) => {
+      const result = uploadEvent.target?.result as string;
+      if (result) {
+        setDiagramUrl(result);
+        setShowDiagramInput(true);
+        if (!diagramCaption) {
+          setDiagramCaption('চিত্র: প্রশ্নের উদ্দীপক বা চিত্র');
+        }
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyParsedMcq = () => {
+    if (!rawTextToParse.trim()) return;
+    const parsed = parseRawMcqText(rawTextToParse);
+    if (parsed.qText) setQuestionText(parsed.qText);
+    if (parsed.optA) setOption1(parsed.optA);
+    if (parsed.optB) setOption2(parsed.optB);
+    if (parsed.optC) setOption3(parsed.optC);
+    if (parsed.optD) setOption4(parsed.optD);
+    if (parsed.correct) {
+      setCorrectAnswer(parsed.correct);
+      if (parsed.correct.includes('ক') || parsed.correct.toLowerCase().includes('a')) setCorrectOptionIdx(0);
+      else if (parsed.correct.includes('খ') || parsed.correct.toLowerCase().includes('b')) setCorrectOptionIdx(1);
+      else if (parsed.correct.includes('গ') || parsed.correct.toLowerCase().includes('c')) setCorrectOptionIdx(2);
+      else if (parsed.correct.includes('ঘ') || parsed.correct.toLowerCase().includes('d')) setCorrectOptionIdx(3);
+    }
+    if (parsed.expl) setExplanation(parsed.expl);
+    setShowQuickParser(false);
+    setRawTextToParse('');
+  };
 
   if (!isOpen) return null;
 
@@ -126,7 +240,16 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
     const activeSubject = subject === '__CUSTOM__' ? customSubject.trim() || 'General' : subject;
     const activeChapter = (customChapterMode ? customChapterText : chapter).trim();
     const activeBoard = (customBoardMode ? customBoardText : board).trim();
-    const activeYear = (customYearMode ? customYearText : year).trim() || '2024';
+    const activeYear = (customYearMode ? customYearText : year).trim() || '2025';
+
+    // Resolved options
+    const rawOptions = [option1, option2, option3, option4];
+    const cleanedOptions = rawOptions.map(cleanOptionText).filter(Boolean);
+
+    const activeCorrectAnswer =
+      questionType === 'MCQ'
+        ? correctAnswer.trim() || cleanedOptions[correctOptionIdx] || `বিকল্প ${['ক', 'খ', 'গ', 'ঘ'][correctOptionIdx]}`
+        : correctAnswer.trim();
 
     const payload: Omit<SubmittedQuestion, 'id' | 'createdAt' | 'status'> = {
       submitterName: submitterName.trim(),
@@ -138,11 +261,10 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
       questionType,
       questionText: questionText.trim(),
       stimulus: stimulus.trim() || undefined,
-      options:
-        questionType === 'MCQ'
-          ? [option1.trim(), option2.trim(), option3.trim(), option4.trim()].filter(Boolean)
-          : undefined,
-      correctAnswer: correctAnswer.trim() || undefined,
+      options: questionType === 'MCQ' ? cleanedOptions : undefined,
+      correctAnswer: activeCorrectAnswer || undefined,
+      diagramUrl: diagramUrl.trim() || undefined,
+      diagramCaption: diagramCaption.trim() || undefined,
       cqParts:
         questionType === 'CQ'
           ? {
@@ -165,8 +287,46 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
     };
 
     try {
+      // 1. Submit through submission service (creates Firestore submitted_questions + Gmail notification)
       const res = await submitPublicQuestion(payload);
       setSubmittedData(res);
+
+      // 2. Also immediately turn this question into an active QuestionBank item so it is instantly usable & persistent!
+      const activeQuestion: Question = {
+        id: `q_user_${Date.now()}`,
+        classLevel,
+        subject: activeSubject,
+        chapter: activeChapter || 'সাধারণ অধ্যায়',
+        questionType,
+        questionText: questionText.trim(),
+        stimulus: stimulus.trim() || undefined,
+        options: questionType === 'MCQ' ? cleanedOptions : undefined,
+        correctOptionIndex: questionType === 'MCQ' ? correctOptionIdx : undefined,
+        correctAnswer: activeCorrectAnswer || undefined,
+        diagramUrl: diagramUrl.trim() || undefined,
+        diagramCaption: diagramCaption.trim() || undefined,
+        cqParts: payload.cqParts,
+        marks: questionType === 'CQ' ? 10 : 1,
+        difficulty: 'Medium',
+        sourceType: 'COMMUNITY',
+        boardInfo: payload.boardInfo
+          ? {
+              boardName: payload.boardInfo.boardName,
+              year: payload.boardInfo.year,
+              examType: payload.boardInfo.examType || 'SSC Exam',
+              isVerified: true,
+            }
+          : undefined,
+        explanation: explanation.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      // Save directly to cloud and local cache so refresh never loses it!
+      await saveQuestionToCloud(activeQuestion);
+
+      if (onQuestionSubmitted) {
+        onQuestionSubmitted(activeQuestion);
+      }
     } catch (err: any) {
       console.error(err);
       setErrorMessage(err?.message || 'Question submission failed. Please try again.');
@@ -183,6 +343,10 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
     setOption3('');
     setOption4('');
     setCorrectAnswer('');
+    setCorrectOptionIdx(0);
+    setDiagramUrl('');
+    setDiagramCaption('');
+    setShowDiagramInput(false);
     setPartA('');
     setPartB('');
     setPartC('');
@@ -203,12 +367,12 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
             </div>
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                {isBangla ? 'প্রশ্ন আপলোড ও জমা দিন' : 'Upload & Submit Educational Question'}
+                {isBangla ? 'প্রশ্ন আপলোড ও স্থায়ী সংরক্ষণ' : 'Upload & Permanently Save Question'}
               </h3>
               <p className="text-xs text-slate-500">
                 {isBangla
-                  ? 'আপনার প্রশ্নটি সরাসরি অ্যাডমিনের জিমেইলে নোটিফিকেশন হিসেবে পৌঁছে যাবে'
-                  : `Notification will be automatically sent to Admin (${ADMIN_EMAIL})`}
+                  ? 'চিত্র, গাণিতিক সূত্র (10⁻¹⁸, LaTeX) সহ সকল ধরনের প্রশ্ন আপলোড করুন'
+                  : `Upload questions with diagrams, LaTeX and formulas - automatically synced to admin`}
               </p>
             </div>
           </div>
@@ -228,12 +392,12 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                 <CheckCircle2 className="w-10 h-10" />
               </div>
               <h4 className="text-lg font-bold text-slate-900">
-                {isBangla ? 'প্রশ্নটি সফলভাবে জমা হয়েছে!' : 'Question Submitted Successfully!'}
+                {isBangla ? 'প্রশ্নটি সফলভাবে আপলোড ও ক্লাউডে সেভ হয়েছে!' : 'Question Saved Successfully!'}
               </h4>
               <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
                 {isBangla
-                  ? `আপনার দেওয়া প্রশ্নটি ক্লাউডে সংরক্ষিত হয়েছে এবং অ্যাডমিনের জিমেইলে (${ADMIN_EMAIL}) নোটিফিকেশন পাঠানো হয়েছে। অ্যাডমিন পর্যালোচনা করে প্রশ্ন ব্যাংকে এটি অনুমোদন করবেন।`
-                  : `Your question has been securely recorded and dispatched to Admin (${ADMIN_EMAIL}) for review.`}
+                  ? `আপনার দেওয়া প্রশ্নটি ক্লাউড ডাটাবেজে স্থায়ীভাবে সংরক্ষিত হয়েছে। রিফ্রেশ দিলেও এটি প্রশ্ন ব্যাংকে থাকবে এবং যেকেউ এটি দিয়ে প্রশ্নপত্র তৈরি করতে পারবে।`
+                  : `Your question has been permanently saved to the Question Bank and Firestore database.`}
               </p>
 
               <div className="pt-2 flex flex-wrap items-center justify-center gap-3">
@@ -244,7 +408,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                   className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold inline-flex items-center gap-2 shadow-xs transition-colors"
                 >
                   <Mail className="w-4 h-4" />
-                  {isBangla ? 'অ্যাডমিনকে জিমেইলে সরাসরি জানান' : 'Open in Gmail to Notify Admin'}
+                  {isBangla ? 'অ্যাডমিনকে জিমেইলে জানান' : 'Notify Admin via Gmail'}
                   <ExternalLink className="w-3.5 h-3.5" />
                 </a>
 
@@ -253,7 +417,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                   onClick={resetForm}
                   className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
                 >
-                  {isBangla ? '+ আরেকটি প্রশ্ন জমা দিন' : '+ Submit Another Question'}
+                  {isBangla ? '+ আরেকটি প্রশ্ন আপলোড করুন' : '+ Submit Another Question'}
                 </button>
               </div>
             </div>
@@ -293,7 +457,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                       required
                       value={submitterName}
                       onChange={(e) => setSubmitterName(e.target.value)}
-                      placeholder="e.g. কামাল হোসেন / শিক্ষক"
+                      placeholder="e.g. মো. জাহিদুল ইসলাম / শিক্ষক"
                       className="w-full text-xs border border-slate-300 rounded-xl p-2.5 focus:ring-2 focus:ring-blue-500 bg-white"
                     />
                   </div>
@@ -470,7 +634,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                   )}
                 </div>
 
-                {/* Year with Auto-Stepper: [← আগের বছর] [2024] [পরের বছর →] */}
+                {/* Year with Auto-Stepper */}
                 <div className="sm:col-span-7 bg-white p-2 rounded-xl border border-slate-200 space-y-1.5 shadow-2xs">
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
@@ -488,7 +652,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                         type="text"
                         value={customYearText}
                         onChange={(e) => setCustomYearText(e.target.value)}
-                        placeholder="যেমন: 2024"
+                        placeholder="যেমন: 2025"
                         className="flex-1 px-3 py-1.5 rounded-xl border border-blue-300 text-xs bg-white focus:ring-2 focus:ring-blue-500"
                       />
                       <button
@@ -544,7 +708,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
 
                   {/* Quick Year Selection Chips */}
                   <div className="flex items-center gap-1 overflow-x-auto pt-0.5">
-                    {['2026', '2025', '2024', '2023', '2022', '2020'].map((yr) => (
+                    {['2027', '2026', '2025', '2024', '2023', '2022'].map((yr) => (
                       <button
                         key={yr}
                         type="button"
@@ -567,9 +731,22 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
 
               {/* Question Type Selection */}
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  {isBangla ? 'প্রশ্নের ধরন (Question Type):' : 'Question Type:'}
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-slate-700">
+                    {isBangla ? 'প্রশ্নের ধরন (Question Type):' : 'Question Type:'}
+                  </label>
+                  {questionType === 'MCQ' && (
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickParser(!showQuickParser)}
+                      className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200 transition-colors"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                      <span>{showQuickParser ? 'ম্যানুয়াল ইনপুট' : 'দ্রুত সম্পূর্ণ MCQ পেস্ট করুন'}</span>
+                    </button>
+                  )}
+                </div>
+
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
@@ -607,12 +784,48 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                 </div>
               </div>
 
+              {/* Fast MCQ Smart Paste Box */}
+              {showQuickParser && questionType === 'MCQ' && (
+                <div className="p-3.5 bg-indigo-50/70 border border-indigo-200 rounded-2xl space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-indigo-600" />
+                      {isBangla ? 'এখানে পুরো MCQ প্রশ্নটি একসাথে পেস্ট করুন:' : 'Paste Complete MCQ Text:'}
+                    </span>
+                    <span className="text-[10px] text-indigo-600">১ ক্লিকে প্রশ্ন ও অপশন আলাদা হয়ে যাবে</span>
+                  </div>
+                  <textarea
+                    rows={4}
+                    value={rawTextToParse}
+                    onChange={(e) => setRawTextToParse(e.target.value)}
+                    placeholder={`১. 1 am কত মিটার?\n• ক) 10⁻¹⁸ m\n• খ) 10⁻¹⁵ m\n• গ) 10⁻¹² m\n• ঘ) 10⁻¹⁰ m\n• সঠিক উত্তর: ক) 10⁻¹⁸ m (কারণ ১ অ্যাটোমিটার = 10⁻¹⁸ মিটার)`}
+                    className="w-full text-xs p-2.5 rounded-xl border border-indigo-200 bg-white font-mono focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowQuickParser(false)}
+                      className="px-3 py-1.5 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50"
+                    >
+                      বাতিল
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleApplyParsedMcq}
+                      className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-xs"
+                    >
+                      স্বয়ংক্রিয়ভাবে ফর্ম পূরণ করুন
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Question Text / Stimulus */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
                   {questionType === 'CQ'
                     ? isBangla
-                      ? 'সৃজনশীল উদ্দীপক (Stimulus) *'
+                      ? 'সৃজনশীল উদ্দীপক (Stimulus Scenario) *'
                       : 'Stimulus Scenario *'
                     : isBangla
                     ? 'মূল প্রশ্ন (Question Text) *'
@@ -620,65 +833,170 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                 </label>
                 <textarea
                   required
-                  rows={3}
+                  rows={2}
                   value={questionText}
                   onChange={(e) => setQuestionText(e.target.value)}
                   placeholder={
                     questionType === 'CQ'
-                      ? 'এখানে উদ্দীপকের বিবরণ লিখুন...'
-                      : 'প্রশ্নের মূল বাক্য লিখুন...'
+                      ? 'এখানে উদ্দীপকের বিস্তারিত বিবরণ লিখুন...'
+                      : 'যেমন: ১. 1 am কত মিটার? অথবা 50 kg ভরের বস্তুর ত্বরণ...'
                   }
                   className="w-full text-xs border border-slate-300 rounded-xl p-2.5 font-bangla focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
+              {/* Diagram / Image Upload Section ("চিত্রসহ প্রশ্ন আপলোড") */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <ImageIcon className="w-4 h-4 text-blue-600" />
+                    <span>{isBangla ? 'চিত্র / ডায়াগ্রাম সংযুক্তি (ঐচ্ছিক)' : 'Diagram / Image (Optional)'}</span>
+                  </label>
+                  {!showDiagramInput && (
+                    <button
+                      type="button"
+                      onClick={() => setShowDiagramInput(true)}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200"
+                    >
+                      + চিত্র বা ছবি যোগ করুন
+                    </button>
+                  )}
+                </div>
+
+                {showDiagramInput && (
+                  <div className="space-y-3 pt-1">
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* File chooser */}
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-2xs transition-colors">
+                        <Upload className="w-4 h-4" />
+                        <span>ডিভাইস থেকে ছবি আপলোড করুন</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleDiagramFileUpload}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <span className="text-xs text-slate-400">অথবা ছবির লিংক দিন:</span>
+
+                      <input
+                        type="url"
+                        value={diagramUrl.startsWith('data:') ? '' : diagramUrl}
+                        onChange={(e) => setDiagramUrl(e.target.value)}
+                        placeholder="https://example.com/diagram.png"
+                        className="flex-1 min-w-[200px] text-xs border border-slate-300 rounded-xl p-2 bg-white focus:ring-2 focus:ring-blue-500"
+                      />
+
+                      {diagramUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setDiagramUrl('');
+                            setDiagramCaption('');
+                          }}
+                          className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                          title="চিত্র মুছে ফেলুন"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Diagram Caption */}
+                    <div>
+                      <input
+                        type="text"
+                        value={diagramCaption}
+                        onChange={(e) => setDiagramCaption(e.target.value)}
+                        placeholder="চিত্রের ক্যাপশন (যেমন: চিত্র ১: চল তড়িৎ বর্তনী / ভেক্টর চিত্র)"
+                        className="w-full text-xs border border-slate-300 rounded-xl p-2 bg-white focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    {/* Preview of Diagram */}
+                    {diagramUrl && (
+                      <div className="p-2 bg-white rounded-xl border border-slate-200 flex flex-col items-center">
+                        <img
+                          src={diagramUrl}
+                          alt="Question Diagram Preview"
+                          className="max-h-40 max-w-full object-contain rounded-lg"
+                        />
+                        {diagramCaption && (
+                          <span className="text-[11px] text-slate-500 italic mt-1">{diagramCaption}</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
               {/* MCQ Options */}
               {questionType === 'MCQ' && (
-                <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
-                  <div className="text-xs font-bold text-slate-700">
-                    {isBangla ? 'চারটি বিকল্প (Options):' : 'MCQ Options:'}
+                <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700">
+                      {isBangla ? 'চারটি বিকল্প (Options) ও সঠিক উত্তর নির্বাচন:' : 'MCQ Options & Correct Answer:'}
+                    </span>
+                    <span className="text-[10px] text-slate-500">
+                      (গোল বাটনে ক্লিক করে সঠিক উত্তর চিহ্নিত করুন)
+                    </span>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                    <input
-                      type="text"
-                      value={option1}
-                      onChange={(e) => setOption1(e.target.value)}
-                      placeholder="ক. প্রথম বিকল্প"
-                      className="text-xs border border-slate-300 rounded-xl p-2 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={option2}
-                      onChange={(e) => setOption2(e.target.value)}
-                      placeholder="খ. দ্বিতীয় বিকল্প"
-                      className="text-xs border border-slate-300 rounded-xl p-2 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={option3}
-                      onChange={(e) => setOption3(e.target.value)}
-                      placeholder="গ. তৃতীয় বিকল্প"
-                      className="text-xs border border-slate-300 rounded-xl p-2 bg-white"
-                    />
-                    <input
-                      type="text"
-                      value={option4}
-                      onChange={(e) => setOption4(e.target.value)}
-                      placeholder="ঘ. চতুর্থ বিকল্প"
-                      className="text-xs border border-slate-300 rounded-xl p-2 bg-white"
-                    />
+
+                  {/* 4 Options Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                    {[
+                      { label: 'ক', val: option1, setter: setOption1, idx: 0, placeholder: 'ক) 10⁻¹⁸ m' },
+                      { label: 'খ', val: option2, setter: setOption2, idx: 1, placeholder: 'খ) 10⁻¹⁵ m' },
+                      { label: 'গ', val: option3, setter: setOption3, idx: 2, placeholder: 'গ) 10⁻¹² m' },
+                      { label: 'ঘ', val: option4, setter: setOption4, idx: 3, placeholder: 'ঘ) 10⁻¹⁰ m' },
+                    ].map(({ label, val, setter, idx, placeholder }) => (
+                      <div
+                        key={idx}
+                        className={`flex items-center gap-2 p-2 rounded-xl border transition-colors ${
+                          correctOptionIdx === idx
+                            ? 'bg-emerald-50/70 border-emerald-300'
+                            : 'bg-white border-slate-200'
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="correctOptionRadio"
+                          checked={correctOptionIdx === idx}
+                          onChange={() => {
+                            setCorrectOptionIdx(idx);
+                            setCorrectAnswer(cleanOptionText(val) || label);
+                          }}
+                          className="w-4 h-4 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                        />
+                        <span className="font-bold text-xs text-slate-700 w-5 text-center">{label})</span>
+                        <input
+                          type="text"
+                          value={val}
+                          onChange={(e) => {
+                            const cleaned = cleanOptionText(e.target.value);
+                            setter(cleaned);
+                            if (correctOptionIdx === idx) {
+                              setCorrectAnswer(cleaned);
+                            }
+                          }}
+                          placeholder={placeholder}
+                          className="flex-1 text-xs border border-slate-200 rounded-lg p-1.5 bg-white focus:ring-2 focus:ring-blue-500 font-medium"
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <div className="pt-1">
-                    <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                      {isBangla ? 'সঠিক উত্তর (ঐচ্ছিক):' : 'Correct Answer (Optional):'}
-                    </label>
-                    <input
-                      type="text"
-                      value={correctAnswer}
-                      onChange={(e) => setCorrectAnswer(e.target.value)}
-                      placeholder="যেমন: খ / সঠিক উত্তরের টেক্সট"
-                      className="w-full text-xs border border-slate-300 rounded-xl p-2 bg-white"
-                    />
+
+                  <div className="pt-1.5 flex items-center justify-between text-xs">
+                    <span className="text-slate-600 font-medium">
+                      নির্বাচিত সঠিক উত্তর:{' '}
+                      <strong className="text-emerald-700 font-bold">
+                        {['ক', 'খ', 'গ', 'ঘ'][correctOptionIdx]}
+                        {cleanOptionText([option1, option2, option3, option4][correctOptionIdx]) && (
+                          <span>: {cleanOptionText([option1, option2, option3, option4][correctOptionIdx])}</span>
+                        )}
+                      </strong>
+                    </span>
                   </div>
                 </div>
               )}
@@ -734,6 +1052,55 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                 </div>
               )}
 
+              {/* Live Preview Box */}
+              {(questionText.trim() || option1 || diagramUrl) && (
+                <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
+                    <Eye className="w-3.5 h-3.5 text-blue-600" />
+                    <span>{isBangla ? 'প্রশ্নের লাইভ প্রিভিউ (LaTeX ও গাণিতিক রূপ):' : 'Live Preview:'}</span>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-blue-100 text-xs text-slate-800 space-y-2">
+                    <div className="font-semibold">
+                      <MathRenderer content={questionText} />
+                    </div>
+
+                    {diagramUrl && (
+                      <div className="flex flex-col items-center py-1">
+                        <img src={diagramUrl} alt="Diagram" className="max-h-36 object-contain rounded-md" />
+                        {diagramCaption && (
+                          <span className="text-[10px] text-slate-500 italic mt-0.5">{diagramCaption}</span>
+                        )}
+                      </div>
+                    )}
+
+                    {questionType === 'MCQ' && (
+                      <div className="grid grid-cols-2 gap-1.5 pt-1 text-slate-700">
+                        {option1 && (
+                          <div className={correctOptionIdx === 0 ? 'text-emerald-700 font-bold' : ''}>
+                            ক) <MathRenderer content={cleanOptionText(option1)} />
+                          </div>
+                        )}
+                        {option2 && (
+                          <div className={correctOptionIdx === 1 ? 'text-emerald-700 font-bold' : ''}>
+                            খ) <MathRenderer content={cleanOptionText(option2)} />
+                          </div>
+                        )}
+                        {option3 && (
+                          <div className={correctOptionIdx === 2 ? 'text-emerald-700 font-bold' : ''}>
+                            গ) <MathRenderer content={cleanOptionText(option3)} />
+                          </div>
+                        )}
+                        {option4 && (
+                          <div className={correctOptionIdx === 3 ? 'text-emerald-700 font-bold' : ''}>
+                            ঘ) <MathRenderer content={cleanOptionText(option4)} />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Additional Explanation */}
               <div>
                 <label className="block text-[11px] font-bold text-slate-600 mb-1">
@@ -743,7 +1110,7 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                   rows={2}
                   value={explanation}
                   onChange={(e) => setExplanation(e.target.value)}
-                  placeholder="সংক্ষিপ্ত সমাধান বা উত্তর..."
+                  placeholder="যেমন: কারণ ১ অ্যাটোমিটার (am) = 10⁻¹⁸ মিটার।"
                   className="w-full text-xs border border-slate-300 rounded-xl p-2 font-bangla focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -765,11 +1132,11 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                   <Send className="w-4 h-4" />
                   {isSubmitting
                     ? isBangla
-                      ? 'জমা হচ্ছে...'
-                      : 'Submitting...'
+                      ? 'সংরক্ষণ হচ্ছে...'
+                      : 'Saving...'
                     : isBangla
-                    ? 'প্রশ্ন জমা দিন ও অ্যাডমিনকে পাঠান'
-                    : 'Submit Question to Admin'}
+                    ? 'প্রশ্ন আপলোড ও সেভ করুন'
+                    : 'Save & Publish Question'}
                 </button>
               </div>
             </form>

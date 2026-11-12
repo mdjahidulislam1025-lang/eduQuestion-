@@ -361,15 +361,24 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
                             </div>
                           )}
 
-                          {/* Diagram if attached */}
-                          {q.diagramSvg && (
-                            <div className="my-2 flex flex-col items-center justify-center">
-                              <div
-                                className="max-w-full max-h-[160px]"
-                                dangerouslySetInnerHTML={{ __html: q.diagramSvg }}
-                              />
+                          {/* Diagram if attached (SVG or Image URL) */}
+                          {(q.diagramSvg || q.diagramUrl) && (
+                            <div className="my-2.5 flex flex-col items-center justify-center p-2 bg-slate-50/50 rounded-lg border border-slate-200/60 print:bg-transparent print:border-none">
+                              {q.diagramSvg && (
+                                <div
+                                  className="max-w-full max-h-[160px]"
+                                  dangerouslySetInnerHTML={{ __html: q.diagramSvg }}
+                                />
+                              )}
+                              {q.diagramUrl && (
+                                <img
+                                  src={q.diagramUrl}
+                                  alt={q.diagramCaption || 'Question Diagram'}
+                                  className="max-w-full max-h-[160px] object-contain rounded-md"
+                                />
+                              )}
                               {q.diagramCaption && (
-                                <span className="text-[10px] text-slate-500 italic mt-0.5">
+                                <span className="text-[10px] text-slate-500 italic mt-0.5 text-center">
                                   {q.diagramCaption}
                                 </span>
                               )}

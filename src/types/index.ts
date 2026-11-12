@@ -272,6 +272,8 @@ export interface SubmittedQuestion {
     partC: { question: string; marks: number; answer?: string };
     partD: { question: string; marks: number; answer?: string };
   };
+  diagramUrl?: string;
+  diagramCaption?: string;
   explanation?: string;
   marks: number;
   boardInfo?: {
