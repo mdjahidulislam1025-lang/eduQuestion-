@@ -1,5 +1,5 @@
 import { collection, doc, getDocs, setDoc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
-import { db, auth } from '../lib/firebase';
+import { db, auth, sanitizeFirestoreData } from '../lib/firebase';
 import { SubmittedQuestion, AdminNotification, Question } from '../types';
 
 export const ADMIN_EMAIL = 'mdjahidulislam1025@gmail.com';
@@ -33,7 +33,7 @@ export async function submitPublicQuestion(
 
   // 2. Persist to Firestore `submitted_questions`
   try {
-    await setDoc(doc(db, 'submitted_questions', id), newSubmission);
+    await setDoc(doc(db, 'submitted_questions', id), sanitizeFirestoreData(newSubmission));
   } catch (err) {
     console.warn('Firestore submission save warning:', err);
   }
@@ -60,7 +60,7 @@ export async function submitPublicQuestion(
   };
 
   try {
-    await setDoc(doc(db, 'admin_notifications', notificationId), notification);
+    await setDoc(doc(db, 'admin_notifications', notificationId), sanitizeFirestoreData(notification));
   } catch (err) {
     console.warn('Failed to save admin notification document:', err);
   }
@@ -192,7 +192,7 @@ export async function approveSubmittedQuestion(
 
   // 2. Save approved question into Firestore `saved_questions`
   try {
-    await setDoc(doc(db, 'saved_questions', verifiedQuestion.id), verifiedQuestion);
+    await setDoc(doc(db, 'saved_questions', verifiedQuestion.id), sanitizeFirestoreData(verifiedQuestion));
   } catch (err) {
     console.warn('Failed to save approved question in Firestore', err);
   }

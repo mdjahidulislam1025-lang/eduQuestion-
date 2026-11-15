@@ -660,6 +660,17 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                           <div className="p-2.5 bg-slate-50 rounded-xl border-l-2 border-slate-400">
                             <MathRenderer content={q.stimulus} />
                           </div>
+                          {(q.diagramSvg || q.diagramUrl) && (
+                            <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
+                              {q.diagramSvg && (
+                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                              )}
+                              {q.diagramUrl && (
+                                <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
+                              )}
+                              {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
+                            </div>
+                          )}
                           {q.cqParts && (
                             <div className="pl-2 space-y-0.5 text-xs text-slate-700">
                               <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
@@ -672,6 +683,17 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                       ) : (
                         <div className="text-xs sm:text-sm text-slate-800 font-bangla">
                           <MathRenderer content={q.questionText} />
+                          {(q.diagramSvg || q.diagramUrl) && (
+                            <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
+                              {q.diagramSvg && (
+                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                              )}
+                              {q.diagramUrl && (
+                                <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
+                              )}
+                              {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
+                            </div>
+                          )}
                           {q.questionType === 'MCQ' && q.options && (
                             <div className="grid grid-cols-2 gap-1.5 mt-2 text-xs text-slate-600">
                               {q.options.map((opt, idx) => (
@@ -1184,6 +1206,17 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                                         <div className="p-2 bg-white rounded-lg border-l-2 border-slate-400">
                                           <MathRenderer content={q.stimulus} />
                                         </div>
+                                        {(q.diagramSvg || q.diagramUrl) && (
+                                          <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
+                                            {q.diagramSvg && (
+                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                            )}
+                                            {q.diagramUrl && (
+                                              <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
+                                            )}
+                                            {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
+                                          </div>
+                                        )}
                                         {q.cqParts && (
                                           <div className="pl-2 text-xs text-slate-700 space-y-0.5">
                                             <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
@@ -1196,6 +1229,17 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                                     ) : (
                                       <div>
                                         <MathRenderer content={q.questionText} />
+                                        {(q.diagramSvg || q.diagramUrl) && (
+                                          <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
+                                            {q.diagramSvg && (
+                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                            )}
+                                            {q.diagramUrl && (
+                                              <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
+                                            )}
+                                            {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
+                                          </div>
+                                        )}
                                         {q.questionType === 'MCQ' && q.options && (
                                           <div className="grid grid-cols-2 gap-1 mt-1.5 text-xs text-slate-600">
                                             {q.options.map((opt, oIdx) => (
@@ -1321,6 +1365,24 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                             </div>
                             <span className="font-bold text-xs shrink-0">[{q.marks}]</span>
                           </div>
+
+                          {(q.diagramSvg || q.diagramUrl) && (
+                            <div className="my-2 flex flex-col items-center justify-center pl-4">
+                              {q.diagramSvg && (
+                                <div className="max-w-full max-h-[150px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                              )}
+                              {q.diagramUrl && (
+                                <img
+                                  src={q.diagramUrl}
+                                  alt={q.diagramCaption || 'Diagram'}
+                                  className="max-w-full max-h-[150px] object-contain"
+                                />
+                              )}
+                              {q.diagramCaption && (
+                                <span className="text-[10px] text-slate-500 italic mt-0.5">{q.diagramCaption}</span>
+                              )}
+                            </div>
+                          )}
 
                           {q.questionType === 'MCQ' && q.options && (
                             <div className="grid grid-cols-2 gap-x-6 gap-y-1 pl-5 mt-1 text-xs">

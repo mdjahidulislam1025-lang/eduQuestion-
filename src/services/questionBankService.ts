@@ -1,4 +1,4 @@
-import { db } from '../lib/firebase';
+import { db, sanitizeFirestoreData } from '../lib/firebase';
 import {
   collection,
   doc,
@@ -105,10 +105,13 @@ async function syncLocalQuestionsToCloud(cloudIds: Set<string>): Promise<void> {
   for (const q of localCustom) {
     if (!cloudIds.has(q.id)) {
       try {
-        await setDoc(doc(db, SAVED_QUESTIONS_COLLECTION, q.id), {
-          ...q,
-          updatedAt: new Date().toISOString(),
-        });
+        await setDoc(
+          doc(db, SAVED_QUESTIONS_COLLECTION, q.id),
+          sanitizeFirestoreData({
+            ...q,
+            updatedAt: new Date().toISOString(),
+          })
+        );
       } catch (err) {
         console.warn(`Sync question ${q.id} to cloud failed:`, err);
       }
@@ -125,12 +128,10 @@ export async function loadCloudQuestions(): Promise<Question[]> {
 
   try {
     const snap = await getDocs(collection(db, SAVED_QUESTIONS_COLLECTION));
-    if (!snap.empty) {
-      cloudQs = snap.docs.map((d) => d.data() as Question);
-      const cloudIds = new Set(cloudQs.map((q) => q.id));
-      // Proactively sync local questions up to Firestore
-      syncLocalQuestionsToCloud(cloudIds).catch(() => {});
-    }
+    cloudQs = snap.docs.map((d) => d.data() as Question);
+    const cloudIds = new Set(cloudQs.map((q) => q.id));
+    // Proactively sync local questions up to Firestore
+    syncLocalQuestionsToCloud(cloudIds).catch(() => {});
   } catch (err) {
     console.warn('Could not fetch questions from Firestore, relying on local storage:', err);
   }
@@ -198,10 +199,10 @@ export async function saveQuestionToCloud(question: Question): Promise<void> {
 
   // 2. Persist to Firestore `saved_questions`
   try {
-    const cleanQuestion: Question = {
+    const cleanQuestion = sanitizeFirestoreData({
       ...question,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(doc(db, SAVED_QUESTIONS_COLLECTION, question.id), cleanQuestion);
   } catch (err) {
     console.warn('Failed to save question to Firestore:', err);

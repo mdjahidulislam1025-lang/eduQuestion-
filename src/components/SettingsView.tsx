@@ -13,8 +13,10 @@ import {
   Key,
   ExternalLink,
   Building,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Smartphone
 } from 'lucide-react';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface SettingsViewProps {
   userProfile: UserProfile;
@@ -230,6 +232,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <Save className="w-4 h-4" /> {isSaving ? 'Saving to Cloud & Device...' : 'Save Branding Preferences'}
           </button>
         </div>
+      </div>
+
+      {/* Android (APK/AAB) & iOS Mobile App Card */}
+      <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 rounded-2xl border border-blue-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="space-y-1 max-w-xl">
+          <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-bangla">
+            <Smartphone className="w-5 h-5 text-blue-600" /> Android (.APK / .AAB) ও iOS মোবাইল অ্যাপ ডাউনলোড
+          </h3>
+          <p className="text-xs text-slate-600 font-bangla">
+            সরাসরি Android ও iPhone-এ অ্যাপ হিসেবে ইনস্টল করুন অথবা Google Play Store-এর জন্য .APK / .AAB এবং iOS Xcode বিল্ড কিট ডাউনলোড করুন।
+          </p>
+        </div>
+        <PWAInstallButton variant="card" />
       </div>
 
       {/* Cloud Backup & Vercel Deployment (Admin Only - Hidden from regular users) */}

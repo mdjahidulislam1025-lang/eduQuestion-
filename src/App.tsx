@@ -36,7 +36,8 @@ import {
   db,
   handleFirestoreError,
   OperationType,
-  testFirestoreConnection
+  testFirestoreConnection,
+  sanitizeFirestoreData
 } from './lib/firebase';
 import {
   signInWithPopup,
@@ -66,6 +67,7 @@ import { AdminConfigManager } from './components/AdminConfigManager';
 import { AdminDashboardView } from './components/AdminDashboardView';
 import { SubmitQuestionModal } from './components/SubmitQuestionModal';
 import { UserProfileView } from './components/UserProfileView';
+import { PWAInstallButton, OfflineIndicator } from './components/PWAInstallButton';
 
 // Services
 import { loadWorkspaceBranding, saveWorkspaceBranding } from './services/brandingService';
@@ -810,11 +812,14 @@ export default function App() {
 
     if (currentUser) {
       try {
-        await setDoc(doc(db, 'question_papers', paper.id), {
-          ...paper,
-          ownerId: currentUser.uid,
-          updatedAt: new Date().toISOString(),
-        });
+        await setDoc(
+          doc(db, 'question_papers', paper.id),
+          sanitizeFirestoreData({
+            ...paper,
+            ownerId: currentUser.uid,
+            updatedAt: new Date().toISOString(),
+          })
+        );
       } catch (err) {
         handleFirestoreError(err, OperationType.WRITE, `question_papers/${paper.id}`);
       }
@@ -990,6 +995,8 @@ export default function App() {
               <span>{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
             </button>
 
+            <PWAInstallButton isBangla={isBangla} variant="header" />
+
             <button
               onClick={handleCreateNewPaper}
               className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-colors"
@@ -1099,6 +1106,11 @@ export default function App() {
               </div>
             </div>
 
+            {/* Mobile App & APK/AAB Installer */}
+            <div className="pt-3 mt-3 border-t border-slate-100">
+              <PWAInstallButton isBangla={isBangla} variant="sidebar" />
+            </div>
+
             {/* Creator Attribution & Interactive Live View Counter Widget */}
             <div className="pt-3 mt-3 border-t border-slate-100 space-y-2.5">
               {/* Automatic Live View Counter Display */}
@@ -1184,8 +1196,9 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Mobile Drawer Footer: View Counter & Creator Attribution */}
-              <div className="pt-4 border-t border-slate-100 space-y-2 mt-4">
+              {/* Mobile Drawer Footer: View Counter & Mobile App Install */}
+              <div className="pt-4 border-t border-slate-100 space-y-2.5 mt-4">
+                <PWAInstallButton isBangla={isBangla} variant="sidebar" />
                 <div className="w-full flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-bold">
                   <div className="flex items-center gap-2">
                     <Eye className="w-4 h-4 text-blue-600" />
@@ -1924,6 +1937,9 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Offline Connectivity Indicator */}
+      <OfflineIndicator isBangla={isBangla} />
     </div>
   );
 }

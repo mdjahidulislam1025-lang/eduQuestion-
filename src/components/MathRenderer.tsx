@@ -7,10 +7,7 @@ interface MathRendererProps {
   className?: string;
 }
 
-/**
- * Maps unicode superscripts to standard ASCII characters
- */
-const SUPERSCRIPT_MAP: Record<string, string> = {
+const SUPERSCRIPT_CHAR_MAP: Record<string, string> = {
   '⁰': '0',
   '¹': '1',
   '²': '2',
@@ -30,41 +27,87 @@ const SUPERSCRIPT_MAP: Record<string, string> = {
   'ⁱ': 'i',
 };
 
-/**
- * Checks if a string contains unicode superscripts
- */
-function hasUnicodeSuperscripts(text: string): boolean {
-  return /[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ]/.test(text);
-}
+const SUBSCRIPT_CHAR_MAP: Record<string, string> = {
+  '₀': '0',
+  '₁': '1',
+  '₂': '2',
+  '₃': '3',
+  '₄': '4',
+  '₅': '5',
+  '₆': '6',
+  '₇': '7',
+  '₈': '8',
+  '₉': '9',
+  '₊': '+',
+  '₋': '-',
+};
 
 /**
- * Converts unicode superscripts to HTML sub/sup friendly format or TeX
- */
-function normalizeUnicodeSuperscripts(text: string): string {
-  // Convert patterns like 10⁻¹⁸ to 10^{-18}
-  return text.replace(/([0-9a-zA-Z]+)([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ]+)/g, (_, base, sups) => {
-    const asciiSups = sups
-      .split('')
-      .map((ch: string) => SUPERSCRIPT_MAP[ch] || ch)
-      .join('');
-    return `$${base}^{${asciiSups}}$`;
-  });
-}
-
-/**
- * Pre-cleans common paste artifacts in math/science questions
- * e.g., accidental leading closing bracket ") \(10^{-18}\)" -> "\(10^{-18}\)"
+ * Cleans stray leading closing paren copied before LaTeX e.g. ") \(10^{-18}\text{ m}\)"
  */
 function preCleanMathArtifacts(raw: string): string {
   if (!raw) return '';
-  let str = raw;
-  // If user copied e.g. ") \(10^{-18}\text{ m}\)" or ") 10^-18"
-  str = str.replace(/^\s*[\)\.\•\-\*]+\s*(?=\\?\(|\$|10\^|10[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻])/, '');
-  // Normalize unicode superscripts like 10⁻¹⁸ or ms⁻²
-  if (hasUnicodeSuperscripts(str)) {
-    str = normalizeUnicodeSuperscripts(str);
+  return raw.replace(/^\s*\)\s*(?=\\?\(|\$)/, '');
+}
+
+/**
+ * Renders plain text segments with automatic support for unicode superscripts/subscripts
+ * (e.g. 10⁻¹⁸, H₂O) and caret exponents (e.g. 10^-18, 10^{-18}, ms^-2).
+ */
+function renderPlainSegment(segment: string, keyPrefix: string): React.ReactNode {
+  const tokenRegex = /([⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ]+|[₀₁₂₃₄₅₆₇₈₉₊₋]+|\^(?:\{[^}]+\}|[+-]?\d+|[a-zA-Z]))/g;
+  if (!tokenRegex.test(segment)) {
+    return <span key={keyPrefix}>{segment}</span>;
   }
-  return str;
+
+  tokenRegex.lastIndex = 0;
+  const nodes: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+
+  while ((m = tokenRegex.exec(segment)) !== null) {
+    if (m.index > lastIdx) {
+      nodes.push(<React.Fragment key={`${keyPrefix}-t-${lastIdx}`}>{segment.slice(lastIdx, m.index)}</React.Fragment>);
+    }
+
+    const tok = m[0];
+    if (tok.startsWith('^')) {
+      const exp = tok.slice(1).replace(/^\{|\}$/g, '');
+      nodes.push(
+        <sup key={`${keyPrefix}-sup-${m.index}`} className="text-[0.72em] leading-none font-semibold">
+          {exp}
+        </sup>
+      );
+    } else if (/[⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼⁽⁾ⁿⁱ]/.test(tok)) {
+      const ascii = tok
+        .split('')
+        .map((c) => SUPERSCRIPT_CHAR_MAP[c] || c)
+        .join('');
+      nodes.push(
+        <sup key={`${keyPrefix}-usup-${m.index}`} className="text-[0.72em] leading-none font-semibold">
+          {ascii}
+        </sup>
+      );
+    } else {
+      const ascii = tok
+        .split('')
+        .map((c) => SUBSCRIPT_CHAR_MAP[c] || c)
+        .join('');
+      nodes.push(
+        <sub key={`${keyPrefix}-usub-${m.index}`} className="text-[0.72em] leading-none font-semibold">
+          {ascii}
+        </sub>
+      );
+    }
+
+    lastIdx = tokenRegex.lastIndex;
+  }
+
+  if (lastIdx < segment.length) {
+    nodes.push(<React.Fragment key={`${keyPrefix}-t-${lastIdx}`}>{segment.slice(lastIdx)}</React.Fragment>);
+  }
+
+  return <span key={keyPrefix}>{nodes}</span>;
 }
 
 export const MathRenderer: React.FC<MathRendererProps> = ({ content, text, className = '' }) => {
@@ -75,25 +118,16 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, text, class
 
     const cleaned = preCleanMathArtifacts(effectiveContent);
 
-    // Regex supports:
-    // 1. $$ ... $$ (display)
-    // 2. \[ ... \] (display)
-    // 3. $ ... $ (inline)
-    // 4. \( ... \) (inline)
+    // Supports $$...$$, \[...\], $...$, and \(...\)
     const regex = /(\$\$[\s\S]*?\$\$|\\\[[\s\S]*?\\\]|\$[^\$]+?\$|\\\([\s\S]*?\\\))/g;
     const parts: React.ReactNode[] = [];
     let lastIndex = 0;
-    let match;
+    let match: RegExpExecArray | null;
 
     while ((match = regex.exec(cleaned)) !== null) {
-      // Text before formula
       if (match.index > lastIndex) {
         const textSegment = cleaned.substring(lastIndex, match.index);
-        parts.push(
-          <span key={`text-${lastIndex}`}>
-            {textSegment}
-          </span>
-        );
+        parts.push(renderPlainSegment(textSegment, `text-${lastIndex}`));
       }
 
       const matchStr = match[0];
@@ -126,7 +160,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, text, class
             className={isDisplayMode ? 'block my-2 overflow-x-auto text-center' : 'inline-block mx-0.5 align-middle'}
           />
         );
-      } catch (err) {
+      } catch {
         parts.push(
           <code key={`err-${match.index}`} className="text-red-500 font-mono text-xs">
             {matchStr}
@@ -138,11 +172,7 @@ export const MathRenderer: React.FC<MathRendererProps> = ({ content, text, class
     }
 
     if (lastIndex < cleaned.length) {
-      parts.push(
-        <span key={`text-${lastIndex}`}>
-          {cleaned.substring(lastIndex)}
-        </span>
-      );
+      parts.push(renderPlainSegment(cleaned.substring(lastIndex), `text-${lastIndex}`));
     }
 
     return parts;

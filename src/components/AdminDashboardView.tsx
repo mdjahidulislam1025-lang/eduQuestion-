@@ -759,6 +759,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <MathRenderer content={sub.questionText} />
                       </div>
 
+                      {sub.diagramUrl && (
+                        <div className="my-2 p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-col items-center">
+                          <img
+                            src={sub.diagramUrl}
+                            alt={sub.diagramCaption || 'Question Diagram'}
+                            className="max-h-44 max-w-full object-contain rounded-lg"
+                          />
+                          {sub.diagramCaption && (
+                            <span className="text-[11px] text-slate-500 italic mt-1">{sub.diagramCaption}</span>
+                          )}
+                        </div>
+                      )}
+
                       {/* MCQ Options */}
                       {sub.questionType === 'MCQ' && sub.options && sub.options.length > 0 && (
                         <div className="grid grid-cols-2 gap-2 mt-2 pt-2 border-t border-slate-100 text-xs">

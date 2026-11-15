@@ -630,7 +630,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-slate-100 transition-colors"
                 >
                   <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                  {question.diagramSvg ? 'Edit Diagram' : 'Attach Diagram'}
+                  {(question.diagramSvg || question.diagramUrl) ? 'Edit Diagram' : 'Attach Diagram'}
                 </button>
               )}
             </div>
@@ -655,12 +655,21 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           currentSubject={question.subject}
           currentClass={question.classLevel}
           initialSvg={question.diagramSvg}
+          initialImageUrl={question.diagramUrl}
           initialCaption={question.diagramCaption}
           onClose={() => setShowDiagramEditor(false)}
           onInsertSvg={(svg, caption) => {
             onUpdate?.({
               ...question,
               diagramSvg: svg,
+              diagramCaption: caption,
+            });
+            setShowDiagramEditor(false);
+          }}
+          onInsertImage={(imageUrl, caption) => {
+            onUpdate?.({
+              ...question,
+              diagramUrl: imageUrl,
               diagramCaption: caption,
             });
             setShowDiagramEditor(false);

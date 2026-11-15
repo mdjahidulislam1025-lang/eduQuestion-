@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Sparkles, Eye, Code, Image as ImageIcon, Check, Loader2 } from 'lucide-react';
+import { Sparkles, Eye, Code, Image as ImageIcon, Check, Loader2, Upload, Trash2 } from 'lucide-react';
+import { compressDiagramImage } from '../utils/questionMediaHelper';
 
 interface DiagramEditorProps {
   onInsertSvg: (svg: string, caption?: string) => void;
+  onInsertImage?: (imageUrl: string, caption?: string) => void;
   onClose: () => void;
   initialSvg?: string;
+  initialImageUrl?: string;
   initialCaption?: string;
   currentSubject?: string;
   currentClass?: string;
@@ -127,14 +130,21 @@ const PRESET_DIAGRAMS: { name: string; category: string; svg: string }[] = [
 
 export const DiagramEditor: React.FC<DiagramEditorProps> = ({
   onInsertSvg,
+  onInsertImage,
   onClose,
   initialSvg = '',
+  initialImageUrl = '',
   initialCaption = '',
   currentSubject = 'Physics',
   currentClass = 'Class 10',
 }) => {
-  const [activeTab, setActiveTab] = useState<'presets' | 'ai' | 'code'>('presets');
+  const [activeTab, setActiveTab] = useState<'upload' | 'presets' | 'ai' | 'code'>(
+    initialImageUrl ? 'upload' : 'presets'
+  );
   const [svgContent, setSvgContent] = useState<string>(initialSvg || PRESET_DIAGRAMS[0].svg);
+  const [imageUrl, setImageUrl] = useState<string>(initialImageUrl);
+  const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const [caption, setCaption] = useState<string>(initialCaption);
   const [aiPrompt, setAiPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -173,7 +183,30 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
     }
   };
 
+  const handleImageFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setIsUploadingImage(true);
+    setUploadError(null);
+    try {
+      const compressed = await compressDiagramImage(file);
+      setImageUrl(compressed);
+    } catch (err: any) {
+      setUploadError(err?.message || 'চিত্র আপলোড করতে সমস্যা হয়েছে। অনুগ্রহ করে ছোট ছবি দিন।');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const handleInsert = () => {
+    if (activeTab === 'upload') {
+      if (!imageUrl.trim()) return;
+      if (onInsertImage) {
+        onInsertImage(imageUrl.trim(), caption);
+      }
+      onClose();
+      return;
+    }
     if (!svgContent.trim()) return;
     onInsertSvg(svgContent, caption);
     onClose();
@@ -202,10 +235,22 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-slate-200 px-6 bg-white gap-4">
+        <div className="flex border-b border-slate-200 px-6 bg-white gap-4 overflow-x-auto">
+          {onInsertImage && (
+            <button
+              onClick={() => setActiveTab('upload')}
+              className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
+                activeTab === 'upload'
+                  ? 'border-blue-600 text-blue-600'
+                  : 'border-transparent text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Upload className="w-4 h-4 text-emerald-600" /> ছবি / চিত্র আপলোড
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('presets')}
-            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'presets'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -215,7 +260,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('ai')}
-            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'ai'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -225,7 +270,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
           </button>
           <button
             onClick={() => setActiveTab('code')}
-            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`py-3 px-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 whitespace-nowrap ${
               activeTab === 'code'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -239,6 +284,64 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
         <div className="p-6 overflow-y-auto flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Column: Controls */}
           <div className="space-y-4">
+            {activeTab === 'upload' && (
+              <div className="space-y-3">
+                <label className="block text-xs font-bold text-slate-700 font-bangla">
+                  প্রশ্নের চিত্র / ডায়াগ্রাম ছবি আপলোড করুন (PNG, JPG, SVG):
+                </label>
+                <label className="flex flex-col items-center justify-center p-5 border-2 border-dashed border-blue-300 bg-blue-50/40 hover:bg-blue-50 rounded-xl cursor-pointer transition-colors">
+                  {isUploadingImage ? (
+                    <Loader2 className="w-6 h-6 text-blue-600 animate-spin mb-1" />
+                  ) : (
+                    <Upload className="w-6 h-6 text-blue-600 mb-1" />
+                  )}
+                  <span className="text-xs font-bold text-blue-800 font-bangla">
+                    {isUploadingImage ? 'ছবি অপ্টিমাইজ করা হচ্ছে...' : 'মোবাইল বা কম্পিউটার থেকে চিত্র বাছাই করুন'}
+                  </span>
+                  <span className="text-[11px] text-slate-500 mt-0.5">
+                    অটো-কম্প্রেসড হয়ে সেভ হবে
+                  </span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageFileUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    অথবা ছবির সরাসরি লিংক (Image URL):
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={imageUrl}
+                      onChange={(e) => setImageUrl(e.target.value)}
+                      placeholder="https://example.com/diagram.png"
+                      className="flex-1 text-xs border border-slate-300 rounded-xl p-2.5 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    {imageUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setImageUrl('')}
+                        className="px-2.5 py-2 text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-xl border border-rose-200"
+                        title="মুছে ফেলুন"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {uploadError && (
+                  <div className="p-2.5 bg-rose-50 text-rose-700 text-xs rounded-xl border border-rose-200">
+                    {uploadError}
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'presets' && (
               <div className="space-y-3">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
@@ -344,7 +447,24 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
               Print-Ready Preview (A4 Paper Rendering)
             </p>
             <div className="flex-1 min-h-[260px] bg-white border border-slate-300 rounded-xl p-4 flex flex-col items-center justify-center shadow-inner relative overflow-hidden">
-              {svgContent ? (
+              {activeTab === 'upload' ? (
+                imageUrl ? (
+                  <div className="w-full h-full flex flex-col items-center justify-center">
+                    <img
+                      src={imageUrl}
+                      alt={caption || 'Diagram Preview'}
+                      className="max-w-full max-h-[220px] object-contain rounded-lg"
+                    />
+                    {caption && (
+                      <p className="text-xs text-slate-600 font-medium mt-3 italic text-center font-bangla">
+                        {caption}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 font-bangla">এখনো কোনো চিত্র আপলোড করা হয়নি</p>
+                )
+              ) : svgContent ? (
                 <div className="w-full h-full flex flex-col items-center justify-center">
                   <div
                     className="max-w-full max-h-[220px] flex items-center justify-center"
@@ -361,7 +481,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
               )}
             </div>
             <p className="text-[11px] text-slate-400 mt-2">
-              Note: SVG vectors scale crisply without pixelation at 300 DPI for printed exam papers.
+              Note: Uploaded images and SVG vectors both print crisply on A4 exam papers.
             </p>
           </div>
         </div>
@@ -376,7 +496,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
           </button>
           <button
             onClick={handleInsert}
-            disabled={!svgContent.trim()}
+            disabled={activeTab === 'upload' ? !imageUrl.trim() : !svgContent.trim()}
             className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-sm"
           >
             <Check className="w-4 h-4" /> Insert into Question
