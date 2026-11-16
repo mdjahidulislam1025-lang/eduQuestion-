@@ -572,6 +572,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 </p>
               )}
 
+              {question.questionType === 'SQ' && question.correctAnswer && !question.explanation && (
+                <div className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-emerald-100">
+                  <MathRenderer content={question.correctAnswer} />
+                </div>
+              )}
+
               {question.explanation && (
                 <div className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-emerald-100">
                   <MathRenderer content={question.explanation} />

@@ -120,6 +120,45 @@ async function syncLocalQuestionsToCloud(cloudIds: Set<string>): Promise<void> {
 }
 
 /**
+ * Ensures any newly added baseline NCTB questions (e.g., Physics Ch2) are also saved
+ * into Firestore `saved_questions` if missing in cloud, without overwriting existing/edited items.
+ */
+async function syncMissingBaselineQuestionsToCloud(cloudIds: Set<string>): Promise<void> {
+  const SEED_KEY = 'edu_seeded_phy_ch2_ch3_v1';
+  try {
+    if (localStorage.getItem(SEED_KEY) === 'done') return;
+  } catch {
+    // ignore storage access issues
+  }
+
+  let allSynced = true;
+  for (const q of AUTHENTIC_NCTB_QUESTIONS) {
+    if ((q.id.startsWith('nctb-phy-ch2-sq-') || q.id.startsWith('nctb-phy-ch3-sq-')) && !cloudIds.has(q.id)) {
+      try {
+        await setDoc(
+          doc(db, SAVED_QUESTIONS_COLLECTION, q.id),
+          sanitizeFirestoreData({
+            ...q,
+            updatedAt: q.createdAt,
+          })
+        );
+      } catch (err) {
+        allSynced = false;
+        console.warn(`Sync baseline question ${q.id} to cloud failed:`, err);
+      }
+    }
+  }
+
+  if (allSynced) {
+    try {
+      localStorage.setItem(SEED_KEY, 'done');
+    } catch {
+      // ignore
+    }
+  }
+}
+
+/**
  * Loads all questions from Firestore `saved_questions` collection and merges them with NCTB defaults
  * and local custom questions. Never loses questions on page refresh!
  */
@@ -130,8 +169,9 @@ export async function loadCloudQuestions(): Promise<Question[]> {
     const snap = await getDocs(collection(db, SAVED_QUESTIONS_COLLECTION));
     cloudQs = snap.docs.map((d) => d.data() as Question);
     const cloudIds = new Set(cloudQs.map((q) => q.id));
-    // Proactively sync local questions up to Firestore
+    // Proactively sync local & newly added baseline NCTB questions up to Firestore
     syncLocalQuestionsToCloud(cloudIds).catch(() => {});
+    syncMissingBaselineQuestionsToCloud(cloudIds).catch(() => {});
   } catch (err) {
     console.warn('Could not fetch questions from Firestore, relying on local storage:', err);
   }

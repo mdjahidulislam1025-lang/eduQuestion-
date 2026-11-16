@@ -77,6 +77,7 @@ import {
   subscribeToCloudQuestions,
   saveQuestionToCloud,
   deleteQuestionFromCloud,
+  mergeWithDefaultQuestions,
 } from './services/questionBankService';
 import {
   recordUserLogin,
@@ -246,12 +247,14 @@ export default function App() {
       const saved = localStorage.getItem('edu_questions');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return mergeWithDefaultQuestions(parsed);
+        }
       }
     } catch (e) {
       console.warn('Failed to parse local questions', e);
     }
-    return AUTHENTIC_NCTB_QUESTIONS;
+    return mergeWithDefaultQuestions([]);
   });
   const GUEST_PROFILE: UserProfile = {
     uid: 'guest',
