@@ -234,17 +234,22 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Android (APK/AAB) & iOS Mobile App Card */}
+      {/* Mobile App Card (APK/AAB copy shown only to Admin) */}
       <div className="bg-gradient-to-br from-blue-50 via-white to-indigo-50 p-6 rounded-2xl border border-blue-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-1 max-w-xl">
           <h3 className="font-bold text-slate-900 text-base flex items-center gap-2 font-bangla">
-            <Smartphone className="w-5 h-5 text-blue-600" /> Android (.APK / .AAB) ও iOS মোবাইল অ্যাপ ডাউনলোড
+            <Smartphone className="w-5 h-5 text-blue-600" />
+            {isAdmin
+              ? 'Android (.APK / .AAB) ও iOS মোবাইল অ্যাপ ডাউনলোড (Admin)'
+              : 'মোবাইল অ্যাপ ইনস্টল (Android ও iPhone)'}
           </h3>
           <p className="text-xs text-slate-600 font-bangla">
-            সরাসরি Android ও iPhone-এ অ্যাপ হিসেবে ইনস্টল করুন অথবা Google Play Store-এর জন্য .APK / .AAB এবং iOS Xcode বিল্ড কিট ডাউনলোড করুন।
+            {isAdmin
+              ? 'সরাসরি Android ও iPhone-এ অ্যাপ হিসেবে ইনস্টল করুন অথবা Google Play Store-এর জন্য .APK / .AAB এবং iOS Xcode বিল্ড কিট ডাউনলোড করুন।'
+              : 'আপনার Android ফোন বা iPhone/iPad-এ সরাসরি ফুল-স্ক্রিন মোবাইল অ্যাপ হিসেবে ইনস্টল করুন এবং অফলাইনেও ব্যবহার করুন।'}
           </p>
         </div>
-        <PWAInstallButton variant="card" />
+        <PWAInstallButton variant="card" isAdmin={isAdmin} />
       </div>
 
       {/* Cloud Backup & Vercel Deployment (Admin Only - Hidden from regular users) */}

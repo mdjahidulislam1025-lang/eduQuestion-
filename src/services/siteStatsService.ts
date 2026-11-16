@@ -94,6 +94,156 @@ export async function getLatestViewCount(): Promise<number> {
   return parseInt(localStorage.getItem(LOCAL_STORAGE_KEY) || '1025', 10);
 }
 
+export interface AppDownloadStats {
+  totalAppDownloads: number;
+  androidDownloads: number;
+  iosDownloads: number;
+  desktopDownloads: number;
+  lastDownloadedAt?: string;
+}
+
+const LOCAL_DOWNLOADS_KEY = 'eduquestion_app_downloads_stats';
+const DOWNLOAD_RECORDED_FLAG = 'eduquestion_app_download_recorded_v1';
+
+function getCachedDownloadStats(): AppDownloadStats {
+  try {
+    const raw = localStorage.getItem(LOCAL_DOWNLOADS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      return {
+        totalAppDownloads: Number(parsed.totalAppDownloads) || 0,
+        androidDownloads: Number(parsed.androidDownloads) || 0,
+        iosDownloads: Number(parsed.iosDownloads) || 0,
+        desktopDownloads: Number(parsed.desktopDownloads) || 0,
+        lastDownloadedAt: parsed.lastDownloadedAt,
+      };
+    }
+  } catch {
+    // ignore
+  }
+  return {
+    totalAppDownloads: 0,
+    androidDownloads: 0,
+    iosDownloads: 0,
+    desktopDownloads: 0,
+  };
+}
+
+/**
+ * Records an app install / download in Firestore atomically (Android, iOS, or Desktop)
+ */
+export async function recordAppDownload(
+  platform: 'android' | 'ios' | 'desktop',
+  forceCount = false
+): Promise<AppDownloadStats> {
+  const alreadyRecorded = !forceCount && localStorage.getItem(DOWNLOAD_RECORDED_FLAG) === '1';
+  if (alreadyRecorded) {
+    return getCachedDownloadStats();
+  }
+
+  localStorage.setItem(DOWNLOAD_RECORDED_FLAG, '1');
+  const now = new Date().toISOString();
+  const fieldKey =
+    platform === 'android'
+      ? 'androidDownloads'
+      : platform === 'ios'
+      ? 'iosDownloads'
+      : 'desktopDownloads';
+
+  const currentLocal = getCachedDownloadStats();
+  const optimistic: AppDownloadStats = {
+    ...currentLocal,
+    totalAppDownloads: currentLocal.totalAppDownloads + 1,
+    [fieldKey]: (currentLocal[fieldKey] || 0) + 1,
+    lastDownloadedAt: now,
+  };
+  localStorage.setItem(LOCAL_DOWNLOADS_KEY, JSON.stringify(optimistic));
+
+  try {
+    const statsRef = doc(db, 'site_stats', STATS_DOC_ID);
+    const snap = await getDoc(statsRef);
+
+    if (!snap.exists()) {
+      await setDoc(statsRef, {
+        id: STATS_DOC_ID,
+        totalViews: 1026,
+        uniqueVisitors: 1,
+        totalAppDownloads: 1,
+        androidDownloads: platform === 'android' ? 1 : 0,
+        iosDownloads: platform === 'ios' ? 1 : 0,
+        desktopDownloads: platform === 'desktop' ? 1 : 0,
+        lastVisitedAt: now,
+        lastDownloadedAt: now,
+        createdAt: now,
+      });
+      return {
+        totalAppDownloads: 1,
+        androidDownloads: platform === 'android' ? 1 : 0,
+        iosDownloads: platform === 'ios' ? 1 : 0,
+        desktopDownloads: platform === 'desktop' ? 1 : 0,
+        lastDownloadedAt: now,
+      };
+    } else {
+      await updateDoc(statsRef, {
+        totalAppDownloads: increment(1),
+        [fieldKey]: increment(1),
+        lastDownloadedAt: now,
+      });
+      const data = snap.data() || {};
+      const synced: AppDownloadStats = {
+        totalAppDownloads: (Number(data.totalAppDownloads) || 0) + 1,
+        androidDownloads:
+          (Number(data.androidDownloads) || 0) + (platform === 'android' ? 1 : 0),
+        iosDownloads: (Number(data.iosDownloads) || 0) + (platform === 'ios' ? 1 : 0),
+        desktopDownloads:
+          (Number(data.desktopDownloads) || 0) + (platform === 'desktop' ? 1 : 0),
+        lastDownloadedAt: now,
+      };
+      localStorage.setItem(LOCAL_DOWNLOADS_KEY, JSON.stringify(synced));
+      return synced;
+    }
+  } catch (error) {
+    console.warn('Firestore app download counter update failed, kept locally:', error);
+    return optimistic;
+  }
+}
+
+/**
+ * Subscribes to real-time updates for app download counts
+ */
+export function subscribeToAppDownloads(
+  onUpdate: (stats: AppDownloadStats) => void
+): () => void {
+  onUpdate(getCachedDownloadStats());
+  try {
+    const statsRef = doc(db, 'site_stats', STATS_DOC_ID);
+    const unsubscribe = onSnapshot(
+      statsRef,
+      (snap) => {
+        if (snap.exists()) {
+          const data = snap.data() || {};
+          const stats: AppDownloadStats = {
+            totalAppDownloads: Number(data.totalAppDownloads) || 0,
+            androidDownloads: Number(data.androidDownloads) || 0,
+            iosDownloads: Number(data.iosDownloads) || 0,
+            desktopDownloads: Number(data.desktopDownloads) || 0,
+            lastDownloadedAt: data.lastDownloadedAt,
+          };
+          localStorage.setItem(LOCAL_DOWNLOADS_KEY, JSON.stringify(stats));
+          onUpdate(stats);
+        }
+      },
+      (err) => {
+        console.warn('Snapshot listener error on app downloads:', err);
+      }
+    );
+    return unsubscribe;
+  } catch (err) {
+    console.warn('Could not attach snapshot listener for app downloads:', err);
+    return () => {};
+  }
+}
+
 /**
  * Subscribes to real-time updates for the site view counter
  */

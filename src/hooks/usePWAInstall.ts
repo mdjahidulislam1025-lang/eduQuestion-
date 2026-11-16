@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { recordAppDownload } from '../services/siteStatsService';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -11,6 +12,13 @@ export function usePWAInstall() {
   const [isIOS, setIsIOS] = useState(false);
   const [isAndroid, setIsAndroid] = useState(false);
 
+  const detectPlatform = (): 'android' | 'ios' | 'desktop' => {
+    const ua = typeof navigator !== 'undefined' ? navigator.userAgent.toLowerCase() : '';
+    if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+    if (/android/.test(ua)) return 'android';
+    return 'desktop';
+  };
+
   useEffect(() => {
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
@@ -21,6 +29,11 @@ export function usePWAInstall() {
     setIsIOS(/iphone|ipad|ipod/.test(ua));
     setIsAndroid(/android/.test(ua));
 
+    // If user is launching the installed standalone app for the first time, record it
+    if (isStandalone) {
+      recordAppDownload(detectPlatform()).catch(() => {});
+    }
+
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);
@@ -29,6 +42,7 @@ export function usePWAInstall() {
     const handleAppInstalled = () => {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      recordAppDownload(detectPlatform()).catch(() => {});
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -47,6 +61,7 @@ export function usePWAInstall() {
     if (outcome === 'accepted') {
       setIsInstalled(true);
       setDeferredPrompt(null);
+      await recordAppDownload(detectPlatform()).catch(() => {});
       return true;
     }
     return false;

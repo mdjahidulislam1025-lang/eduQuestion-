@@ -59,11 +59,15 @@ import {
   Download,
   Database,
   Shield,
+  Smartphone,
 } from 'lucide-react';
 import {
   subscribeToViewCount,
+  subscribeToAppDownloads,
   formatBengaliNumber,
+  AppDownloadStats,
 } from '../services/siteStatsService';
+import { PWAInstallButton } from './PWAInstallButton';
 import {
   AppUserProfile,
   loadAllRegisteredUsers,
@@ -243,8 +247,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
-  // Site Views Counter State
+  // Site Views & App Downloads Counter State
   const [siteViews, setSiteViews] = useState<number>(1025);
+  const [downloadStats, setDownloadStats] = useState<AppDownloadStats>({
+    totalAppDownloads: 0,
+    androidDownloads: 0,
+    iosDownloads: 0,
+    desktopDownloads: 0,
+  });
 
   useEffect(() => {
     refreshSubmissions();
@@ -253,11 +263,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const unsubViews = subscribeToViewCount((count) => {
       setSiteViews(count);
     });
+    const unsubDownloads = subscribeToAppDownloads((stats) => {
+      setDownloadStats(stats);
+    });
     const unsubUsers = subscribeToRegisteredUsers((users) => {
       setRegisteredUsers(users);
     });
     return () => {
       unsubViews();
+      unsubDownloads();
       unsubUsers();
     };
   }, []);
@@ -374,8 +388,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <span className="text-blue-300">•</span>
             <span className="text-blue-200">IIT, University of Dhaka</span>
           </div>
-          <div className="flex items-center gap-2 text-slate-300 text-[11px]">
+          <div className="flex flex-wrap items-center gap-4 text-slate-300 text-[11px]">
             <span>মোট ভিজিটর ভিউ: <strong className="text-cyan-300 font-bold">{formatBengaliNumber(siteViews)} জন</strong></span>
+            <span>•</span>
+            <span>মোট অ্যাপ ডাউনলোড: <strong className="text-emerald-300 font-bold">{formatBengaliNumber(downloadStats.totalAppDownloads)} জন</strong></span>
           </div>
         </div>
       </div>
@@ -508,6 +524,34 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </span>
           <p className="text-[11px] text-slate-500 mt-1">ডাইনামিক বিষয় কনফিগারেশন</p>
         </div>
+      </div>
+
+      {/* Admin Exclusive App Download Analytics & APK/AAB Control Bar */}
+      <div className="bg-gradient-to-r from-emerald-50 via-white to-blue-50 p-5 rounded-2xl border border-emerald-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-emerald-600 text-white flex items-center justify-center shadow-sm shrink-0">
+            <Smartphone className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3 className="font-bold text-slate-900 text-sm sm:text-base font-bangla">
+                মোট অ্যাপ ডাউনলোড / ইনস্টল:
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-xs font-black">
+                {formatBengaliNumber(downloadStats.totalAppDownloads)} জন
+              </span>
+              <span className="text-[10px] font-bold text-purple-800 bg-purple-100 px-2 py-0.5 rounded-full">
+                🔒 শুধুমাত্র অ্যাডমিন
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 mt-0.5 font-bangla">
+              Android: <strong>{formatBengaliNumber(downloadStats.androidDownloads)} জন</strong> •
+              iPhone / iPad (iOS): <strong>{formatBengaliNumber(downloadStats.iosDownloads)} জন</strong> •
+              Desktop: <strong>{formatBengaliNumber(downloadStats.desktopDownloads)} জন</strong>
+            </p>
+          </div>
+        </div>
+        <PWAInstallButton variant="card" isBangla={isBangla} isAdmin={true} />
       </div>
 
       {/* Admin Tab Navigation */}

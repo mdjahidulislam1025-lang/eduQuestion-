@@ -168,13 +168,18 @@
     },
     "SiteStats": {
       "title": "SiteStats",
-      "description": "Public website analytics and view counter",
+      "description": "Public website analytics, view counter, and app download counter",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 128 },
         "totalViews": { "type": "number" },
         "uniqueVisitors": { "type": "number" },
+        "totalAppDownloads": { "type": "number" },
+        "androidDownloads": { "type": "number" },
+        "iosDownloads": { "type": "number" },
+        "desktopDownloads": { "type": "number" },
         "lastVisitedAt": { "type": "string" },
+        "lastDownloadedAt": { "type": "string" },
         "createdAt": { "type": "string" }
       },
       "required": ["id", "totalViews"]

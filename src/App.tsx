@@ -995,7 +995,7 @@ export default function App() {
               <span>{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
             </button>
 
-            <PWAInstallButton isBangla={isBangla} variant="header" />
+            <PWAInstallButton isBangla={isBangla} variant="header" isAdmin={isSuperAdminOwner} />
 
             <button
               onClick={handleCreateNewPaper}
@@ -1108,7 +1108,7 @@ export default function App() {
 
             {/* Mobile App & APK/AAB Installer */}
             <div className="pt-3 mt-3 border-t border-slate-100">
-              <PWAInstallButton isBangla={isBangla} variant="sidebar" />
+              <PWAInstallButton isBangla={isBangla} variant="sidebar" isAdmin={isSuperAdminOwner} />
             </div>
 
             {/* Creator Attribution & Interactive Live View Counter Widget */}
@@ -1198,7 +1198,7 @@ export default function App() {
 
               {/* Mobile Drawer Footer: View Counter & Mobile App Install */}
               <div className="pt-4 border-t border-slate-100 space-y-2.5 mt-4">
-                <PWAInstallButton isBangla={isBangla} variant="sidebar" />
+                <PWAInstallButton isBangla={isBangla} variant="sidebar" isAdmin={isSuperAdminOwner} />
                 <div className="w-full flex items-center justify-between p-2.5 rounded-xl bg-blue-50 border border-blue-200 text-blue-900 text-xs font-bold">
                   <div className="flex items-center gap-2">
                     <Eye className="w-4 h-4 text-blue-600" />
