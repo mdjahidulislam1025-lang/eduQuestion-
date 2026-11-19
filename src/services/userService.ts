@@ -80,6 +80,7 @@ export async function saveUserExamBranding(
   const now = new Date().toISOString();
 
   const updates: Partial<AppUserProfile> = {
+    uid,
     ...branding,
     updatedAt: now,
   };

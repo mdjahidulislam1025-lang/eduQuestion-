@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User as FirebaseUser } from 'firebase/auth';
 import { UserProfile } from '../types';
+import { isSafeMediaUrl } from '../utils/security';
 import {
   User,
   Building,
@@ -433,7 +434,7 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
 
               {/* Foreground Header Content */}
               <div className="relative z-10 space-y-1">
-                {logoUrl && (
+                {logoUrl && isSafeMediaUrl(logoUrl) && (
                   <img
                     src={logoUrl}
                     alt="Logo Preview"

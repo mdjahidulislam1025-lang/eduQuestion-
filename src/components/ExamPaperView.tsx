@@ -4,6 +4,7 @@ import { MathRenderer } from './MathRenderer';
 import { Printer, Download, FileText, CheckCircle, Eye, Settings, Image as ImageIcon } from 'lucide-react';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { sanitizeSvg } from '../utils/security';
 
 interface ExamPaperViewProps {
   paper: QuestionPaper;
@@ -71,51 +72,51 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
       )}
 
       {/* Action Toolbar (Hidden during print) */}
-      <div className="no-print bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
+      <div className="no-print bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="grid grid-cols-2 sm:flex items-center gap-2">
           <button
             onClick={() => setViewMode('paper')}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
+            className={`px-3 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
               viewMode === 'paper'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <Eye className="w-4 h-4" /> Preview Question Paper
+            <Eye className="w-4 h-4 shrink-0" /> Preview
           </button>
           <button
             onClick={() => setViewMode('answers')}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 transition-all ${
+            className={`px-3 sm:px-4 py-2 min-h-[40px] rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition-all whitespace-nowrap ${
               viewMode === 'answers'
                 ? 'bg-emerald-600 text-white shadow-xs'
                 : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
             }`}
           >
-            <CheckCircle className="w-4 h-4" /> Answer Sheet
+            <CheckCircle className="w-4 h-4 shrink-0" /> Answers
           </button>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className="p-2 border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 text-sm flex items-center gap-1.5"
+            className="px-3 py-2 min-h-[40px] border border-slate-200 rounded-xl text-slate-700 hover:bg-slate-50 text-xs flex items-center gap-1.5"
           >
             <Settings className="w-4 h-4 text-slate-500" />
-            <span className="text-xs font-semibold">Format</span>
+            <span className="font-semibold">Format</span>
           </button>
 
           <button
             onClick={() => handleDownloadPdf(viewMode === 'answers' ? 'complete' : 'question_paper')}
             disabled={isPdfGenerating}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold flex items-center gap-2 transition-all shadow-xs disabled:opacity-50"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2 min-h-[40px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-all shadow-xs disabled:opacity-50 whitespace-nowrap"
           >
-            <Download className="w-4 h-4" />
-            {isPdfGenerating ? 'Generating PDF...' : 'Download PDF'}
+            <Download className="w-4 h-4 shrink-0" />
+            {isPdfGenerating ? 'Generating...' : 'PDF'}
           </button>
 
           <button
             onClick={() => handlePrint()}
-            className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold flex items-center gap-2 shadow-xs transition-colors"
+            className="flex-1 sm:flex-none justify-center px-3.5 sm:px-4 py-2 min-h-[40px] bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap"
           >
             <Printer className="w-4 h-4 text-emerald-400" /> Print Question Paper
           </button>
@@ -202,7 +203,7 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
       <div className="flex justify-center">
         <div
           id="printable-exam-paper"
-          className={`exam-page w-full max-w-[210mm] min-h-[297mm] print:min-h-0 print:max-w-none print:w-full print:p-0 print:border-none print:shadow-none bg-white border border-slate-300 shadow-xl p-8 sm:p-12 relative overflow-visible print:overflow-visible transition-all ${fontClass} ${sizeClass}`}
+          className={`exam-page w-full max-w-[210mm] min-h-[297mm] print:min-h-0 print:max-w-none print:w-full print:p-0 print:border-none print:shadow-none bg-white border border-slate-300 shadow-xl p-4 sm:p-10 md:p-12 relative overflow-x-hidden print:overflow-visible transition-all ${fontClass} ${sizeClass}`}
           style={{ boxSizing: 'border-box' }}
         >
           {/* Watermark Overlay (Printed on background) */}
@@ -368,7 +369,7 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
                               {q.diagramSvg && (
                                 <div
                                   className="max-w-full max-h-[160px]"
-                                  dangerouslySetInnerHTML={{ __html: q.diagramSvg }}
+                                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }}
                                 />
                               )}
                               {q.diagramUrl && (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { TextbookKnowledgeItem, ClassLevel } from '../types';
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { authenticatedFetch } from '../utils/security';
 import {
   BookOpen,
   Upload,
@@ -66,9 +67,8 @@ export const TextbookKnowledgeView: React.FC<TextbookKnowledgeViewProps> = ({
     setExtractError(null);
 
     try {
-      const res = await fetch('/api/gemini/extract-textbook', {
+      const res = await authenticatedFetch('/api/gemini/extract-textbook', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rawText: formRawText,
           classLevel: formClass,

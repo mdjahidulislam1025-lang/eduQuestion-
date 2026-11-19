@@ -551,7 +551,7 @@ export default function App() {
     const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
 
     if (code.includes('unauthorized-domain') || msg.includes('unauthorized-domain')) {
-      return `ডোমেইন অনুমোদিত নয় (auth/unauthorized-domain): আপনি বর্তমানে "${currentHost}" ডোমেইনে আছেন। Firebase Console (Project: kinetic-campus-9qk4z) -> Authentication -> Settings -> Authorized Domains-এ গিয়ে "${currentHost}" ডোমেইনটি যুক্ত (Add Domain) করুন। অথবা নিচে "অফলাইন এডমিন হিসেবে প্রবেশ" বাটনে ক্লিক করে কাজ চালিয়ে যান।`;
+      return `ডোমেইন অনুমোদিত নয় (auth/unauthorized-domain): আপনি বর্তমানে "${currentHost}" ডোমেইনে আছেন। Firebase Console -> Authentication -> Settings -> Authorized Domains-এ গিয়ে "${currentHost}" ডোমেইনটি যুক্ত করুন অথবা Email ও Password দিয়ে লগইন করুন।`;
     }
     if (code.includes('popup-blocked') || msg.includes('popup-blocked')) {
       return 'মোবাইল ব্রাউজারে পপ-আপ উইন্ডো ব্লক করা হয়েছে। দয়া করে নিচের "মোবাইলে Redirect দিয়ে লগইন" বাটনে চাপুন অথবা ব্রাউজারের পপ-আপ চালু করুন।';
@@ -718,6 +718,17 @@ export default function App() {
 
   const handleSignOut = async () => {
     await signOut(auth);
+    try {
+      [
+        'edu_questions',
+        'edu_papers',
+        'edu_user_configs',
+        'edu_submitted_questions',
+        'edu_custom_user_questions',
+      ].forEach((k) => localStorage.removeItem(k));
+    } catch {
+      // ignore storage cleanup errors
+    }
     setCurrentUser(null);
     setQuestions(getGuestPreviewQuestions());
     setPapers([]);
@@ -984,39 +995,40 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased text-slate-900">
       {/* Top Navbar */}
       <header className="no-print sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2">
           {/* Logo & Mobile Menu */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100"
+              aria-label="Open menu"
+              className="lg:hidden min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-slate-700 hover:bg-slate-100 active:scale-95 transition-transform shrink-0"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
             <div
               onClick={() => setActiveView('library')}
-              className="flex items-center gap-2.5 cursor-pointer select-none"
+              className="flex items-center gap-2 sm:gap-2.5 cursor-pointer select-none min-w-0"
             >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-                <BookOpen className="w-5 h-5 text-cyan-200" />
+              <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-sm shadow-blue-500/20 shrink-0">
+                <BookOpen className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-200" />
               </div>
-              <div>
-                <span className="font-bold text-base sm:text-lg tracking-tight text-slate-900">
+              <div className="flex items-center min-w-0">
+                <span className="font-bold text-sm sm:text-lg tracking-tight text-slate-900 whitespace-nowrap truncate">
                   EduQuestion <span className="text-blue-600 font-extrabold">AI</span>
                 </span>
-                <span className="hidden sm:inline-block ml-2 text-[10px] uppercase font-extrabold tracking-widest text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full">
+                <span className="hidden md:inline-block ml-2 text-[10px] uppercase font-extrabold tracking-widest text-emerald-800 bg-emerald-100 border border-emerald-300 px-2 py-0.5 rounded-full whitespace-nowrap shrink-0">
                   SSC ONLY • বাংলাদেশ শিক্ষাবোর্ড
                 </span>
               </div>
             </div>
           </div>
 
-          {/* Right Controls: View Counter, Language Switcher, Action, Role, Auth */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* Live Website View Counter (Automatically tracked on every link open) */}
+          {/* Right Controls: View Counter (desktop/tablet), Language Switcher, Action, Role, Auth */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Live Website View Counter (Tablet/Desktop header; mobile shows in drawer & footer) */}
             <div
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-800 shadow-2xs select-none"
+              className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50/80 text-xs font-bold text-slate-800 shadow-2xs select-none whitespace-nowrap"
               title={isBangla ? 'ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে যুক্ত হয়' : 'Website views automatically recorded on link open'}
             >
               <span className="relative flex h-2 w-2">
@@ -1024,7 +1036,7 @@ export default function App() {
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
               </span>
               <Eye className="w-3.5 h-3.5 text-blue-600 shrink-0" />
-              <span className="text-[11px] font-extrabold text-slate-900">
+              <span className="text-[11px] font-extrabold text-slate-900 tabular-nums">
                 {isBangla ? `ভিউ: ${formatBengaliNumber(totalViews)}` : `Views: ${totalViews.toLocaleString()}`}
               </span>
             </div>
@@ -1032,16 +1044,16 @@ export default function App() {
             {/* Bilingual Toggle Button (BN / EN) */}
             <button
               onClick={() => setIsBangla(!isBangla)}
-              className="px-2.5 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold flex items-center gap-1.5 text-slate-700 transition-colors"
+              className="px-2 sm:px-2.5 min-h-[36px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-[11px] sm:text-xs font-bold flex items-center gap-1 text-slate-700 transition-colors whitespace-nowrap shrink-0"
               title="Toggle Language / ভাষা পরিবর্তন করুন"
             >
-              <Languages className="w-3.5 h-3.5 text-blue-600" />
+              <Languages className="w-3.5 h-3.5 text-blue-600 shrink-0" />
               <span className={isBangla ? 'text-blue-700 font-black' : 'text-slate-400'}>বাং</span>
               <span className="text-slate-300">/</span>
               <span className={!isBangla ? 'text-blue-700 font-black' : 'text-slate-400'}>EN</span>
             </button>
 
-            {/* Upload Question Button (Requires sign-in) */}
+            {/* Upload Question Button (Icon on mobile, full button on sm+) */}
             <button
               onClick={() => {
                 if (!currentUser) {
@@ -1050,18 +1062,18 @@ export default function App() {
                 }
                 setSubmitQuestionModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-emerald-600/20"
-              title="নতুন প্রশ্ন আপলোড করুন (লগইন আবশ্যক)"
+              className="flex items-center justify-center gap-1.5 px-2.5 sm:px-3 min-h-[36px] bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-emerald-600/20 whitespace-nowrap shrink-0"
+              title={isBangla ? 'নতুন প্রশ্ন আপলোড করুন' : 'Upload Question'}
             >
-              <Upload className="w-3.5 h-3.5" />
-              <span>{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
+              <Upload className="w-3.5 h-3.5 shrink-0" />
+              <span className="hidden sm:inline">{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
             </button>
 
             <PWAInstallButton isBangla={isBangla} variant="header" isAdmin={isSuperAdminOwner} />
 
             <button
               onClick={handleCreateNewPaper}
-              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl text-xs font-bold transition-colors whitespace-nowrap shrink-0"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               {isBangla ? 'নতুন পরীক্ষা পত্র' : 'New Exam Paper'}
@@ -1070,7 +1082,7 @@ export default function App() {
             {currentEditingPaper && (
               <button
                 onClick={() => setActiveView('preview')}
-                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-colors shadow-xs whitespace-nowrap shrink-0"
               >
                 <Printer className="w-3.5 h-3.5 text-emerald-400" />
                 {isBangla ? 'প্রিন্ট / PDF' : 'Print A4'}
@@ -1079,12 +1091,16 @@ export default function App() {
 
             {/* Auth / Profile Area */}
             {currentUser ? (
-              <div className="flex items-center gap-2 pl-2 border-l border-slate-200">
-                <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                  {currentUser.displayName ? currentUser.displayName[0] : 'U'}
-                </div>
+              <div className="flex items-center gap-1 sm:gap-2 pl-1.5 sm:pl-2 border-l border-slate-200 shrink-0">
+                <button
+                  onClick={() => setActiveView('profile')}
+                  title={isBangla ? 'আমার প্রোফাইল' : 'My Profile'}
+                  className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs hover:ring-2 hover:ring-blue-400 transition-all shrink-0"
+                >
+                  {currentUser.displayName ? currentUser.displayName[0].toUpperCase() : 'U'}
+                </button>
                 <div className="hidden lg:block text-left">
-                  <div className="text-xs font-bold text-slate-800 leading-tight">
+                  <div className="text-xs font-bold text-slate-800 leading-tight max-w-[120px] truncate">
                     {currentUser.displayName || 'Authorized Member'}
                   </div>
                   <div className="text-[10px] text-blue-600 font-semibold leading-tight flex items-center gap-1">
@@ -1094,7 +1110,7 @@ export default function App() {
                 <button
                   onClick={handleSignOut}
                   title="Sign Out"
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 ml-1"
+                  className="p-1.5 min-w-[34px] min-h-[34px] flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -1102,10 +1118,10 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setShowAuthModal(true)}
-                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+                className="px-2.5 sm:px-3.5 min-h-[36px] bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors whitespace-nowrap shrink-0"
               >
-                <LogIn className="w-3.5 h-3.5" />
-                {isBangla ? 'লগইন' : 'Sign In'}
+                <LogIn className="w-3.5 h-3.5 shrink-0" />
+                <span>{isBangla ? 'লগইন' : 'Sign In'}</span>
               </button>
             )}
           </div>
@@ -1113,7 +1129,7 @@ export default function App() {
       </header>
 
       {/* Main Layout Grid */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex-1 flex gap-6">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 w-full flex-1 flex gap-6">
         {/* Desktop Sidebar Navigation */}
         <aside className="no-print hidden lg:block w-64 shrink-0">
           <div className="bg-white rounded-3xl border border-slate-200 p-4 shadow-xs sticky top-24 space-y-1">
@@ -1317,10 +1333,14 @@ export default function App() {
                   setShowAuthModal(true);
                   return;
                 }
-                const updated = [newQ, ...questions];
+                const ownedQ: Question = {
+                  ...newQ,
+                  ownerId: newQ.ownerId || currentUser.uid,
+                };
+                const updated = [ownedQ, ...questions];
                 handleSaveQuestions(updated);
-                await saveQuestionToCloud(newQ);
-                logActivity('ADD_QUESTION', 'QUESTION', `Added question ${newQ.id}`);
+                await saveQuestionToCloud(ownedQ);
+                logActivity('ADD_QUESTION', 'QUESTION', `Added question ${ownedQ.id}`);
               }}
               onUpdateQuestion={async (q) => {
                 if (!currentUser) {
@@ -1641,8 +1661,8 @@ export default function App() {
                 onRemoveMember={handleRemoveMember}
                 onTransferOwnership={handleTransferOwnership}
                 onRestoreBackup={(backup) => {
-                  if (backup.questions) handleSaveQuestions(backup.questions);
-                  if (backup.papers) handleSavePapers(backup.papers);
+                  if (Array.isArray(backup?.questions)) handleSaveQuestions(backup.questions);
+                  if (Array.isArray(backup?.papers)) handleSavePapers(backup.papers);
                 }}
               />
             ) : (
@@ -1664,7 +1684,13 @@ export default function App() {
                     {isBangla ? 'প্রশ্ন ব্যাংকে ফিরে যান' : 'Back to Question Bank'}
                   </button>
                   <button
-                    onClick={() => setSubmitQuestionModalOpen(true)}
+                    onClick={() => {
+                      if (!currentUser) {
+                        setShowAuthModal(true);
+                        return;
+                      }
+                      setSubmitQuestionModalOpen(true);
+                    }}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5"
                   >
                     <Upload className="w-3.5 h-3.5" /> {isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}
@@ -1730,8 +1756,8 @@ export default function App() {
                   allTextbooks={[]}
                   allBoardQuestions={[]}
                   onRestoreBackup={(backup) => {
-                    if (backup.questions) handleSaveQuestions(backup.questions);
-                    if (backup.papers) handleSavePapers(backup.papers);
+                    if (Array.isArray(backup?.questions)) handleSaveQuestions(backup.questions);
+                    if (Array.isArray(backup?.papers)) handleSavePapers(backup.papers);
                   }}
                   onSignOut={currentUser ? handleSignOut : undefined}
                 />
@@ -1796,13 +1822,14 @@ export default function App() {
 
       {/* Auth Modal */}
       {showAuthModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4 backdrop-blur-xs">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md overflow-hidden">
-            <div className="p-6 text-center border-b border-slate-100 bg-slate-50">
-              <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white mx-auto flex items-center justify-center shadow-md mb-3">
-                <Shield className="w-6 h-6" />
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-slate-900/60 p-0 sm:p-4 backdrop-blur-xs">
+          <div className="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl border border-slate-200 w-full max-w-md max-h-[92dvh] flex flex-col overflow-hidden">
+            <div className="p-5 sm:p-6 text-center border-b border-slate-100 bg-slate-50 shrink-0 relative">
+              <div className="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3 sm:hidden" />
+              <div className="w-11 h-11 sm:w-12 sm:h-12 rounded-2xl bg-blue-600 text-white mx-auto flex items-center justify-center shadow-md mb-2.5">
+                <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">
+              <h3 className="text-base sm:text-lg font-bold text-slate-900">
                 {isBangla ? 'লগইন করে সম্পূর্ণ প্রশ্ন ব্যাংক আনলক করুন' : 'Sign In to Unlock All Questions'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
@@ -1812,7 +1839,7 @@ export default function App() {
               </p>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-5 sm:p-6 space-y-4 overflow-y-auto flex-1">
               {/* In-app browser warning banner */}
               {isInAppBrowser && (
                 <div className="p-3 bg-amber-50 border border-amber-200 text-amber-800 text-xs rounded-xl flex items-start gap-2">
@@ -2024,7 +2051,7 @@ export default function App() {
       />
 
       {/* Universal Academic Footer with Creator Attribution & Live Clickable View Counter */}
-      <footer className="no-print mt-auto border-t border-slate-200 bg-white py-6">
+      <footer className="no-print mt-auto border-t border-slate-200 bg-white pt-6 pb-20 lg:pb-6">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Creator Attribution */}
           <div className="flex items-center gap-3 text-center md:text-left">
@@ -2044,7 +2071,7 @@ export default function App() {
           </div>
 
           {/* Live Automatic View Counter & Action Button */}
-          <div className="flex flex-wrap items-center justify-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-2.5 sm:gap-3">
             <div
               className="flex items-center gap-2 px-3.5 py-2 rounded-2xl border border-slate-200 bg-slate-50 text-slate-700 text-xs font-bold shadow-2xs select-none"
               title={isBangla ? 'ওয়েবসাইট লিংক ওপেন করলেই ভিউ স্বয়ংক্রিয়ভাবে ক্লাউডে যুক্ত হয়' : 'Website views automatically recorded on link open'}
@@ -2055,7 +2082,7 @@ export default function App() {
               </span>
               <Eye className="w-4 h-4 text-blue-600" />
               <span className="text-slate-600">{isBangla ? 'সর্বমোট ভিউ:' : 'Total Site Views:'}</span>
-              <span className="text-blue-900 font-black text-sm">{formatBengaliNumber(totalViews)}</span>
+              <span className="text-blue-900 font-black text-sm tabular-nums">{formatBengaliNumber(totalViews)}</span>
             </div>
 
             <button
@@ -2066,7 +2093,7 @@ export default function App() {
                 }
                 setSubmitQuestionModalOpen(true);
               }}
-              className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-colors shadow-2xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-colors shadow-2xs"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>{isBangla ? 'প্রশ্ন সাবমিট করুন' : 'Submit Question'}</span>
@@ -2074,6 +2101,99 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* Mobile Fixed Thumb-Zone Bottom Tab Bar */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="no-print lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 pb-safe shadow-[0_-4px_16px_rgba(15,23,42,0.06)]"
+      >
+        <div className="grid grid-cols-4 h-14 max-w-lg mx-auto px-1">
+          <button
+            onClick={() => setActiveView('library')}
+            className={`flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] ${
+              activeView === 'library' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Library className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+              {isBangla ? 'প্রশ্ন ব্যাংক' : 'Bank'}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveView('create-paper')}
+            className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] ${
+              activeView === 'create-paper' || activeView === 'preview'
+                ? 'text-blue-600'
+                : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <Layers className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+              {isBangla ? 'তৈরি করুন' : 'Create'}
+            </span>
+            {!currentUser && (
+              <Lock className="w-2.5 h-2.5 text-amber-500 absolute top-2 right-4" />
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveView('saved-papers')}
+            className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] ${
+              activeView === 'saved-papers' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+            }`}
+          >
+            <FileText className="w-5 h-5" />
+            <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+              {isBangla ? 'প্রশ্নপত্র' : 'Papers'}
+            </span>
+            {!currentUser && (
+              <Lock className="w-2.5 h-2.5 text-amber-500 absolute top-2 right-4" />
+            )}
+          </button>
+
+          {isUserAdminOrOwner ? (
+            <button
+              onClick={() => setActiveView('admin-dashboard')}
+              className={`relative flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] ${
+                activeView === 'admin-dashboard' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <ShieldCheck className="w-5 h-5" />
+              <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+                {isBangla ? 'অ্যাডমিন' : 'Admin'}
+              </span>
+              {pendingSubmissionsCount > 0 && (
+                <span className="absolute top-1.5 right-3.5 px-1.5 min-w-[16px] h-4 flex items-center justify-center text-[9px] font-extrabold rounded-full bg-amber-500 text-white">
+                  {pendingSubmissionsCount}
+                </span>
+              )}
+            </button>
+          ) : currentUser ? (
+            <button
+              onClick={() => setActiveView('profile')}
+              className={`flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] ${
+                activeView === 'profile' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <User className="w-5 h-5" />
+              <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+                {isBangla ? 'প্রোফাইল' : 'Profile'}
+              </span>
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowAuthModal(true)}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-xl transition-colors min-h-[44px] text-blue-600 hover:text-blue-700"
+            >
+              <LogIn className="w-5 h-5" />
+              <span className="text-[10px] font-bold tracking-tight whitespace-nowrap">
+                {isBangla ? 'লগইন' : 'Sign In'}
+              </span>
+            </button>
+          )}
+        </div>
+      </nav>
 
       {/* Offline Connectivity Indicator */}
       <OfflineIndicator isBangla={isBangla} />

@@ -1,5 +1,6 @@
 import { collection, doc, getDocs, setDoc, updateDoc, query, orderBy, limit } from 'firebase/firestore';
 import { db, auth, sanitizeFirestoreData } from '../lib/firebase';
+import { authenticatedFetch } from '../utils/security';
 import { SubmittedQuestion, AdminNotification, Question } from '../types';
 
 export const ADMIN_EMAIL = 'mdjahidulislam1025@gmail.com';
@@ -65,25 +66,25 @@ export async function submitPublicQuestion(
     console.warn('Failed to save admin notification document:', err);
   }
 
-  // 4. Also notify server backend if online
+  // 4. Also notify server backend if signed in & online
   try {
-    fetch('/api/notifications/notify-admin', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        questionId: id,
-        submitterName: data.submitterName,
-        submitterEmail: data.submitterEmail,
-        submitterPhone: data.submitterPhone,
-        classLevel: data.classLevel,
-        subject: data.subject,
-        questionType: data.questionType,
-        questionText: data.questionText,
-        recipientEmail: ADMIN_EMAIL,
-      }),
-    }).catch(() => {
-      // Non-blocking background call
-    });
+    if (auth.currentUser) {
+      authenticatedFetch('/api/notifications/notify-admin', {
+        method: 'POST',
+        body: JSON.stringify({
+          questionId: id,
+          submitterName: data.submitterName,
+          submitterEmail: data.submitterEmail,
+          submitterPhone: data.submitterPhone,
+          classLevel: data.classLevel,
+          subject: data.subject,
+          questionType: data.questionType,
+          questionText: data.questionText,
+        }),
+      }).catch(() => {
+        // Non-blocking background call
+      });
+    }
   } catch {
     // Ignore fetch error
   }

@@ -10,6 +10,7 @@ import {
 } from '../types';
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { authenticatedFetch } from '../utils/security';
 import {
   BookOpen,
   Upload,
@@ -190,9 +191,8 @@ export const NCTBBookLibraryView: React.FC<NCTBBookLibraryViewProps> = ({
       setSingleProgress(50);
 
       // Call AI endpoint to detect TOC and metadata
-      const res = await fetch('/api/nctb/analyze-book', {
+      const res = await authenticatedFetch('/api/nctb/analyze-book', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileName: singleFile.name,
           fileText: textSample,
@@ -375,9 +375,8 @@ export const NCTBBookLibraryView: React.FC<NCTBBookLibraryViewProps> = ({
           prev.map((q) => (q.id === item.id ? { ...q, progress: 60 } : q))
         );
 
-        const res = await fetch('/api/nctb/analyze-book', {
+        const res = await authenticatedFetch('/api/nctb/analyze-book', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             fileName: item.name,
             fileText: textSample,
@@ -466,9 +465,8 @@ export const NCTBBookLibraryView: React.FC<NCTBBookLibraryViewProps> = ({
     setReprocessingBookId(book.id);
 
     try {
-      const res = await fetch('/api/nctb/analyze-book', {
+      const res = await authenticatedFetch('/api/nctb/analyze-book', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           fileName: book.fileName,
           fileText: book.extractedTextSample || book.bookName,

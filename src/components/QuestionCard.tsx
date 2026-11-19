@@ -3,6 +3,7 @@ import { Question } from '../types';
 import { MathRenderer } from './MathRenderer';
 import { DiagramEditor } from './DiagramEditor';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { authenticatedFetch, sanitizeSvg } from '../utils/security';
 import {
   Bookmark,
   CheckCircle,
@@ -14,8 +15,6 @@ import {
   Image as ImageIcon,
   ChevronDown,
   ChevronUp,
-  Award,
-  BookOpen,
   Check,
   X,
   FileText
@@ -104,9 +103,8 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const handleGenerateModelAnswer = async () => {
     setIsSolving(true);
     try {
-      const res = await fetch('/api/gemini/solve-question', {
+      const res = await authenticatedFetch('/api/gemini/solve-question', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
           questionType: question.questionType,
@@ -147,135 +145,81 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
     }
   };
 
-  const getSourceBadge = () => {
-    const verificationBadge = (
-      <span
-        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold ${
-          question.sourceVerificationStatus === 'Verified'
-            ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-            : 'bg-slate-100 text-slate-700 border border-slate-200'
-        }`}
-      >
-        {question.sourceVerificationStatus === 'Verified' ? (
-          <>
-            <CheckCircle className="w-3 h-3 text-emerald-600" />
-            <span>যাচাইকৃত উৎস • {question.sourcePage ? `পৃষ্ঠা ${question.sourcePage}` : 'Page reference unavailable'}</span>
-          </>
-        ) : (
-          <span>{question.sourcePage ? `উৎস পৃষ্ঠা: ${question.sourcePage}` : 'Page reference unavailable'}</span>
-        )}
-      </span>
-    );
+  const getSourceMetaText = () => {
+    const parts: string[] = [];
+    if (question.sourceType === 'BOARD_EXAM') {
+      parts.push(
+        question.boardInfo
+          ? `${question.boardInfo.boardName} '${question.boardInfo.year}`
+          : 'SSC Board Exam'
+      );
+    } else if (question.sourceType === 'NCTB_TEXTBOOK') {
+      parts.push('Official NCTB');
+    } else if (question.sourceType === 'ORIGINAL_AI') {
+      parts.push('AI Generated');
+    } else {
+      parts.push(question.reviewStatus === 'APPROVED' ? 'Admin Verified' : 'User Created');
+    }
 
-    let mainBadge;
-    switch (question.sourceType) {
-      case 'BOARD_EXAM':
-        mainBadge = (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
-            <Award className="w-3.5 h-3.5 text-emerald-700" />
-            Official SSC Board • {question.boardInfo ? `${question.boardInfo.boardName} '${question.boardInfo.year}` : 'SSC Board Exam'}
-          </span>
-        );
-        break;
-      case 'NCTB_TEXTBOOK':
-        mainBadge = (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-900 border border-blue-300">
-            <BookOpen className="w-3.5 h-3.5 text-blue-700" /> Official NCTB
-          </span>
-        );
-        break;
-      case 'ORIGINAL_AI':
-        mainBadge = (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-900 border border-purple-300">
-            <Sparkles className="w-3.5 h-3.5 text-purple-700" /> AI Generated
-          </span>
-        );
-        break;
-      default:
-        mainBadge = (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-indigo-100 text-indigo-900 border border-indigo-200">
-            {question.reviewStatus === 'APPROVED' ? 'Admin Verified' : 'User Created'}
-          </span>
-        );
+    if (question.sourcePdfTitle) {
+      parts.push(question.sourcePdfTitle);
+    }
+    if (question.sourcePage) {
+      parts.push(`পৃষ্ঠা ${question.sourcePage}`);
+    }
+    if (question.difficulty) {
+      parts.push(question.difficulty);
     }
 
     return (
-      <div className="flex items-center gap-1.5 flex-wrap">
-        {mainBadge}
-        {question.sourcePdfTitle && (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-100 text-cyan-900 border border-cyan-200">
-            <FileText className="w-3 h-3 text-cyan-700" />
-            <span className="truncate max-w-[180px]">{question.sourcePdfTitle}</span>
-            <span>•</span>
-            <span className="font-bold">{question.sourcePage || 'Page reference unavailable'}</span>
+      <div className="flex items-center gap-1.5 flex-wrap text-[11px] text-slate-500 mt-1">
+        {question.sourceVerificationStatus === 'Verified' && (
+          <span className="inline-flex items-center gap-1 text-emerald-700 font-semibold">
+            <CheckCircle className="w-3 h-3 shrink-0" />
+            <span>যাচাইকৃত</span>
+            <span aria-hidden="true">·</span>
           </span>
         )}
-        {question.sources && question.sources.length > 0 && (
-          <div className="flex items-center gap-1 flex-wrap">
-            {question.sources.map((s, sIdx) => (
-              <span
-                key={s.id || sIdx}
-                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-900 border border-amber-200"
-              >
-                <span>📌 {s.sourceName}</span>
-                {s.year && <span>({s.year})</span>}
-              </span>
-            ))}
-          </div>
-        )}
-        {verificationBadge}
-        {question.timesUsed !== undefined && question.timesUsed > 0 && (
-          <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-            ব্যবহৃত: {question.timesUsed} বার
-          </span>
-        )}
-        {question.confidenceScore !== undefined && (
-          <span className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-            {Math.round(question.confidenceScore * 100)}% match
-          </span>
-        )}
+        <span>{parts.join(' · ')}</span>
       </div>
     );
   };
 
-  const getDifficultyBadge = () => {
-    const color =
-      question.difficulty === 'Easy'
-        ? 'text-emerald-700 bg-emerald-50'
-        : question.difficulty === 'Medium'
-        ? 'text-amber-700 bg-amber-50'
-        : 'text-rose-700 bg-rose-50';
-    return <span className={`text-[11px] font-medium px-2 py-0.5 rounded-md ${color}`}>{question.difficulty}</span>;
-  };
-
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all p-5 relative group">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md transition-all p-3.5 sm:p-5 relative group">
       {/* Top Meta Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-100">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs font-bold text-slate-800 bg-slate-100 px-2.5 py-1 rounded-md">
-            {index !== undefined ? `Q.${index + 1}` : question.questionType}
-          </span>
-          <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700">
-            {question.subject}
-          </span>
-          <span className="text-xs text-slate-500 font-bangla">{question.chapter}</span>
-          {getSourceBadge()}
-          {getDifficultyBadge()}
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2.5 pb-3 mb-3 border-b border-slate-100">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="font-extrabold text-blue-700">
+              {index !== undefined ? `Q.${index + 1}` : question.questionType}
+            </span>
+            <span className="text-slate-300" aria-hidden="true">·</span>
+            <span className="font-bold text-slate-800">{question.subject}</span>
+            {question.chapter && (
+              <>
+                <span className="text-slate-300" aria-hidden="true">·</span>
+                <span className="text-slate-600 font-bangla truncate max-w-[200px] sm:max-w-none">
+                  {question.chapter}
+                </span>
+              </>
+            )}
+          </div>
+          {getSourceMetaText()}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs font-bold text-slate-700 bg-slate-100 px-2 py-1 rounded-md">
-            [Marks: {question.marks}]
+        <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0">
+          <span className="text-xs font-bold text-slate-700 tabular-nums">
+            মান: {question.marks}
           </span>
 
           {!readOnly && (
-            <>
+            <div className="flex items-center gap-1">
               {onToggleFavorite && (
                 <button
                   onClick={() => onToggleFavorite(question.id)}
                   title="Favorite Question"
-                  className={`p-1.5 rounded-lg transition-colors ${
+                  className={`min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg transition-colors ${
                     question.isFavorite
                       ? 'text-amber-500 bg-amber-50'
                       : 'text-slate-400 hover:text-amber-500 hover:bg-slate-50'
@@ -290,9 +234,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                   onClick={() => onAddToPaper(question)}
                   title={isInPaper ? 'Already in paper' : 'Add to Question Paper'}
                   disabled={isInPaper}
-                  className={`p-1.5 rounded-lg text-xs font-medium flex items-center gap-1 transition-all ${
+                  className={`px-2.5 py-1.5 min-h-[34px] rounded-lg text-xs font-semibold flex items-center gap-1 transition-all whitespace-nowrap ${
                     isInPaper
-                      ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
                   }`}
                 >
@@ -302,7 +246,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                     </>
                   ) : (
                     <>
-                      <PlusCircle className="w-3.5 h-3.5" /> Add to Exam
+                      <PlusCircle className="w-3.5 h-3.5" /> Add
                     </>
                   )}
                 </button>
@@ -312,7 +256,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   title="Edit question text and marks"
-                  className="p-1.5 text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-50"
+                  className="min-w-[34px] min-h-[34px] flex items-center justify-center text-slate-400 hover:text-blue-600 rounded-lg hover:bg-slate-50"
                 >
                   <Edit2 className="w-4 h-4" />
                 </button>
@@ -322,12 +266,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                 <button
                   onClick={() => onDelete(question.id)}
                   title="Delete question"
-                  className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
+                  className="min-w-[34px] min-h-[34px] flex items-center justify-center text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
               )}
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -473,9 +417,9 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
         <div className="space-y-3 font-bangla">
           {/* Stimulus / Uddipok for CQ */}
           {question.stimulus && (
-            <div className="p-3.5 bg-slate-50 border-l-4 border-blue-500 rounded-r-xl text-slate-800 text-sm leading-relaxed">
-              <span className="font-bold text-blue-900 block mb-1 text-xs uppercase tracking-wider">
-                উদ্দীপক / Stimulus:
+            <div className="p-3 sm:p-3.5 bg-slate-50 border border-slate-200/90 rounded-xl text-slate-800 text-sm leading-relaxed overflow-x-auto">
+              <span className="font-bold text-blue-900 block mb-1 text-xs tracking-wide">
+                উদ্দীপক / Stimulus
               </span>
               <MathRenderer content={question.stimulus} />
             </div>
@@ -487,7 +431,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               {question.diagramSvg && (
                 <div
                   className="max-w-full max-h-[220px]"
-                  dangerouslySetInnerHTML={{ __html: question.diagramSvg }}
+                  dangerouslySetInnerHTML={{ __html: sanitizeSvg(question.diagramSvg) }}
                 />
               )}
               {question.diagramUrl && (
@@ -640,19 +584,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           )}
 
           {/* Action Bar */}
-          <div className="flex items-center justify-between pt-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-100">
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
               <button
                 onClick={() => setShowAnswer(!showAnswer)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-blue-50 transition-colors"
+                className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1 py-1.5 px-2.5 min-h-[36px] rounded-lg hover:bg-blue-50 transition-colors whitespace-nowrap"
               >
                 {showAnswer ? (
                   <>
-                    <ChevronUp className="w-3.5 h-3.5" /> Hide Model Answer
+                    <ChevronUp className="w-3.5 h-3.5" /> উত্তর লুকান
                   </>
                 ) : (
                   <>
-                    <ChevronDown className="w-3.5 h-3.5" /> Show Model Answer & Solution
+                    <ChevronDown className="w-3.5 h-3.5" /> উত্তর ও সমাধান দেখুন
                   </>
                 )}
               </button>
@@ -660,10 +604,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               {!readOnly && (
                 <button
                   onClick={() => setShowDiagramEditor(true)}
-                  className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-slate-100 transition-colors"
+                  className="text-xs font-semibold text-slate-600 hover:text-slate-800 flex items-center gap-1 py-1.5 px-2.5 min-h-[36px] rounded-lg hover:bg-slate-100 transition-colors whitespace-nowrap"
                 >
                   <ImageIcon className="w-3.5 h-3.5 text-blue-500" />
-                  {(question.diagramSvg || question.diagramUrl) ? 'Edit Diagram' : 'Attach Diagram'}
+                  {(question.diagramSvg || question.diagramUrl) ? 'Edit Diagram' : 'Diagram'}
                 </button>
               )}
             </div>
@@ -672,10 +616,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
               <button
                 onClick={handleGenerateModelAnswer}
                 disabled={isSolving}
-                className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 py-1 px-2.5 rounded-lg hover:bg-purple-50 transition-colors"
+                className="text-xs font-semibold text-purple-600 hover:text-purple-800 flex items-center gap-1 py-1.5 px-2.5 min-h-[36px] rounded-lg hover:bg-purple-50 transition-colors whitespace-nowrap"
               >
                 <Sparkles className="w-3.5 h-3.5" />
-                {isSolving ? 'Solving...' : 'AI Solve & Marking Guide'}
+                {isSolving ? 'Solving...' : 'AI সমাধান'}
               </button>
             )}
           </div>

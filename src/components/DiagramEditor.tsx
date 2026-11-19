@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Sparkles, Eye, Code, Image as ImageIcon, Check, Loader2, Upload, Trash2 } from 'lucide-react';
 import { compressDiagramImage } from '../utils/questionMediaHelper';
+import { authenticatedFetch, sanitizeSvg } from '../utils/security';
 
 interface DiagramEditorProps {
   onInsertSvg: (svg: string, caption?: string) => void;
@@ -156,9 +157,8 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
     setGenerationError(null);
 
     try {
-      const response = await fetch('/api/gemini/generate-diagram-svg', {
+      const response = await authenticatedFetch('/api/gemini/generate-diagram-svg', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: aiPrompt,
           subject: currentSubject,
@@ -171,7 +171,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
         throw new Error(data.error || 'Failed to generate diagram');
       }
 
-      setSvgContent(data.svg);
+      setSvgContent(sanitizeSvg(data.svg));
       if (!caption) {
         setCaption(aiPrompt);
       }
@@ -468,7 +468,7 @@ export const DiagramEditor: React.FC<DiagramEditorProps> = ({
                 <div className="w-full h-full flex flex-col items-center justify-center">
                   <div
                     className="max-w-full max-h-[220px] flex items-center justify-center"
-                    dangerouslySetInnerHTML={{ __html: svgContent }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeSvg(svgContent) }}
                   />
                   {caption && (
                     <p className="text-xs text-slate-600 font-medium mt-3 italic text-center font-bangla">

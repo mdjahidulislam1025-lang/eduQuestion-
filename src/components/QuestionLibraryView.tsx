@@ -35,6 +35,7 @@ import {
   Lock,
   LogIn,
   ShieldCheck,
+  Filter,
 } from 'lucide-react';
 
 export const STANDARD_BOARDS = [
@@ -155,6 +156,13 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   const [selectedType, setSelectedType] = useState<QuestionType | 'ALL'>('ALL');
   const [selectedBoard, setSelectedBoard] = useState<string>('ALL');
   const [selectedYear, setSelectedYear] = useState<string>('ALL');
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const activeFilterCount =
+    (selectedSubject !== 'ALL' ? 1 : 0) +
+    (selectedChapter !== 'ALL' ? 1 : 0) +
+    (selectedBoard !== 'ALL' ? 1 : 0) +
+    (selectedYear !== 'ALL' ? 1 : 0);
 
   // Selection
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -469,36 +477,36 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center">
-            <Library className="w-6 h-6" />
+      <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+            <Library className="w-5 h-5 sm:w-6 sm:h-6" />
           </div>
-          <div>
-            <h1 className="text-lg sm:text-xl font-bold text-slate-900">
-              {isBangla ? 'এসএসসি প্রশ্ন ব্যাংক (Question Bank)' : 'SSC Question Bank'}
+          <div className="min-w-0">
+            <h1 className="text-base sm:text-xl font-bold text-slate-900 truncate">
+              {isBangla ? 'এসএসসি প্রশ্ন ব্যাংক' : 'SSC Question Bank'}
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-[11px] sm:text-xs text-slate-500 leading-snug">
               {!isAuthenticated ? (
                 isBangla
-                  ? `প্রিভিউ মোড: ${questions.length}টি নমুনা প্রশ্ন দেখা যাচ্ছে • মোট ${lockedTotalCount || 70}+ প্রশ্ন দেখতে লগইন করুন`
-                  : `Preview Mode: Showing ${questions.length} sample questions • Sign in to view all ${lockedTotalCount || 70}+ questions`
+                  ? `প্রিভিউ মোড: ${questions.length}টি নমুনা • সব ${lockedTotalCount || 70}+ প্রশ্ন দেখতে লগইন করুন`
+                  : `Preview Mode: ${questions.length} samples • Sign in to unlock ${lockedTotalCount || 70}+ questions`
               ) : isBangla ? (
-                `মোট ${questions.length}টি সংরক্ষিত প্রশ্ন • বিষয়, অধ্যায় ও ধরন অনুযায়ী সাজানো`
+                `মোট ${questions.length}টি সংরক্ষিত প্রশ্ন • বিষয় ও অধ্যায় অনুযায়ী সাজানো`
               ) : (
-                `${questions.length} stored SSC questions organized by Subject, Chapter, Type, Board & Year`
+                `${questions.length} stored SSC questions organized by Subject, Chapter & Type`
               )}
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2.5 flex-wrap">
+        <div className="flex items-center gap-2 flex-wrap w-full sm:w-auto">
           {isAuthenticated && selectedIds.size > 0 && onBulkAddToPaper && (
             <button
               onClick={handleBulkAdd}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              className="hidden sm:flex px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold items-center gap-1.5 shadow-xs whitespace-nowrap"
             >
               <Plus className="w-4 h-4" />
               {isBangla
@@ -510,7 +518,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
           {isAuthenticated && onAddQuestion ? (
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
+              className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs whitespace-nowrap"
             >
               <Plus className="w-4 h-4 text-emerald-400" />
               {isBangla ? 'নতুন প্রশ্ন যোগ করুন' : 'Add Question Manually'}
@@ -518,7 +526,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
           ) : !isAuthenticated ? (
             <button
               onClick={() => onRequireAuth?.()}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="w-full sm:w-auto justify-center px-4 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
             >
               <LogIn className="w-4 h-4" />
               {isBangla ? 'লগইন করে সব দেখুন' : 'Sign In to Unlock All'}
@@ -529,37 +537,35 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
 
       {/* Preview Mode Notice Banner for Unauthenticated Visitors */}
       {!isAuthenticated && (
-        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 shadow-2xs">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Lock className="w-5 h-5" />
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Lock className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div className="space-y-0.5">
+            <div className="space-y-0.5 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-xs sm:text-sm font-extrabold text-slate-900">
                   {isBangla
                     ? 'সীমিত প্রিভিউ মোড (Guest Preview)'
                     : 'Limited Guest Preview Mode'}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">
-                  {isBangla
-                    ? `${questions.length}টি নমুনা প্রদর্শিত`
-                    : `${questions.length} Samples Shown`}
+                <span className="text-[11px] font-bold text-amber-800">
+                  · {isBangla ? `${questions.length}টি নমুনা` : `${questions.length} Samples`}
                 </span>
               </div>
               <p className="text-xs text-slate-600 leading-relaxed">
                 {isBangla
-                  ? `আপনি বর্তমানে শুধুমাত্র ${questions.length}টি নমুনা প্রশ্ন দেখতে পাচ্ছেন। সম্পূর্ণ প্রশ্ন ব্যাংকের ${lockedTotalCount || 70}+ প্রশ্ন, বোর্ড আর্কাইভ এবং A4 PDF প্রশ্নপত্র তৈরি আনলক করতে Gmail বা যেকোনো ইমেইল দিয়ে লগইন করুন।`
-                  : `You are viewing ${questions.length} preview samples. Sign in with Gmail or any Email to unlock all ${lockedTotalCount || 70}+ questions, full filters, and A4 PDF paper builder.`}
+                  ? `বর্তমানে ${questions.length}টি নমুনা প্রশ্ন দেখা যাচ্ছে। সম্পূর্ণ ${lockedTotalCount || 70}+ প্রশ্ন ও A4 PDF প্রশ্নপত্র আনলক করতে Gmail বা ইমেইল দিয়ে লগইন করুন।`
+                  : `Showing ${questions.length} preview samples. Sign in with Gmail or Email to unlock all ${lockedTotalCount || 70}+ questions and A4 PDF builder.`}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+          <div className="grid grid-cols-1 sm:flex items-center gap-2 shrink-0">
             {onGoogleSignIn && (
               <button
                 onClick={onGoogleSignIn}
-                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs cursor-pointer"
+                className="justify-center px-3.5 py-2.5 sm:py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs cursor-pointer whitespace-nowrap"
               >
                 <ShieldCheck className="w-4 h-4 text-blue-600" />
                 <span>{isBangla ? 'Gmail দিয়ে লগইন' : 'Google Sign In'}</span>
@@ -567,7 +573,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             )}
             <button
               onClick={() => onRequireAuth?.()}
-              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+              className="justify-center px-3.5 py-2.5 sm:py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer whitespace-nowrap"
             >
               <LogIn className="w-3.5 h-3.5" />
               <span>{isBangla ? 'ইমেইল লগইন / সাইন-আপ' : 'Email Sign In'}</span>
@@ -576,59 +582,108 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
         </div>
       )}
 
-      {/* Question Type Tabs (Only show types that exist) */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* Question Type Tabs (Swipeable 1-line row on mobile) */}
+      <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-0.5 sm:flex-wrap">
         <button
           onClick={() => setSelectedType('ALL')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+          className={`px-3.5 sm:px-4 min-h-[38px] rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
             selectedType === 'ALL'
               ? 'bg-blue-600 text-white shadow-xs'
               : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
           }`}
         >
-          {isBangla ? `সকল প্রশ্ন (${questions.length})` : `All (${questions.length})`}
+          {isBangla ? `সকল (${questions.length})` : `All (${questions.length})`}
         </button>
         {mcqCount > 0 && (
           <button
             onClick={() => setSelectedType('MCQ')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 sm:px-4 min-h-[38px] rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
               selectedType === 'MCQ'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isBangla ? `বহুনির্বাচনী - MCQ (${mcqCount})` : `MCQ (${mcqCount})`}
+            {isBangla ? `MCQ (${mcqCount})` : `MCQ (${mcqCount})`}
           </button>
         )}
         {sqCount > 0 && (
           <button
             onClick={() => setSelectedType('SQ')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 sm:px-4 min-h-[38px] rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
               selectedType === 'SQ'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isBangla ? `সংক্ষিপ্ত প্রশ্ন - SQ (${sqCount})` : `Short Questions (${sqCount})`}
+            {isBangla ? `সংক্ষিপ্ত - SQ (${sqCount})` : `Short - SQ (${sqCount})`}
           </button>
         )}
         {cqCount > 0 && (
           <button
             onClick={() => setSelectedType('CQ')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            className={`px-3.5 sm:px-4 min-h-[38px] rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
               selectedType === 'CQ'
                 ? 'bg-blue-600 text-white shadow-xs'
                 : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
             }`}
           >
-            {isBangla ? `সৃজনশীল প্রশ্ন - CQ (${cqCount})` : `Creative Questions (${cqCount})`}
+            {isBangla ? `সৃজনশীল - CQ (${cqCount})` : `Creative - CQ (${cqCount})`}
           </button>
         )}
       </div>
 
-      {/* Filters Bar (Only showing subjects, chapters, boards, years that exist) */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Search-First + Collapsible Filters Bar */}
+      <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <div className="relative flex-1 min-w-[180px]">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={isBangla ? 'প্রশ্ন, বিষয় বা অধ্যায় খুঁজুন...' : 'Search questions, subjects, or chapters...'}
+              className="w-full pl-9 pr-3 py-2 min-h-[40px] rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setMobileFiltersOpen((prev) => !prev)}
+            className={`sm:hidden px-3 min-h-[40px] rounded-xl border text-xs font-bold flex items-center gap-1.5 shrink-0 transition-colors ${
+              mobileFiltersOpen || activeFilterCount > 0
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-slate-50 border-slate-200 text-slate-700'
+            }`}
+          >
+            <Filter className="w-3.5 h-3.5" />
+            <span>{isBangla ? 'ফিল্টার' : 'Filters'}</span>
+            {activeFilterCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] leading-none">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+
+          {isAuthenticated && (
+            <button
+              onClick={toggleSelectAll}
+              className="px-3 sm:px-3.5 min-h-[40px] rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 shrink-0 whitespace-nowrap"
+            >
+              <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+              <span>
+                {filteredQuestions.length > 0 && filteredQuestions.every((q) => selectedIds.has(q.id))
+                  ? isBangla
+                    ? 'বাতিল করুন'
+                    : 'Deselect All'
+                  : isBangla
+                  ? 'সব নির্বাচন'
+                  : 'Select All'}
+              </span>
+            </button>
+          )}
+        </div>
+
+        <div className={`${mobileFiltersOpen ? 'grid' : 'hidden sm:grid'} grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3 pt-2 border-t border-slate-100`}>
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">
               {isBangla ? 'এসএসসি বিষয়' : 'SSC Subject'}
@@ -639,7 +694,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                 setSelectedSubject(e.target.value);
                 setSelectedChapter('ALL');
               }}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
+              className="w-full px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
             >
               <option value="ALL">{isBangla ? 'সকল বিষয়' : 'All Subjects'}</option>
               {availableSubjects.map((s) => (
@@ -657,7 +712,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             <select
               value={selectedChapter}
               onChange={(e) => setSelectedChapter(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
+              className="w-full px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
             >
               <option value="ALL">{isBangla ? 'সকল অধ্যায়' : 'All Chapters'}</option>
               {availableChapters.map((c) => (
@@ -675,7 +730,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             <select
               value={selectedBoard}
               onChange={(e) => setSelectedBoard(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
+              className="w-full px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
             >
               <option value="ALL">{isBangla ? 'সকল বোর্ড' : 'All Boards'}</option>
               {availableBoards.map((b) => (
@@ -688,12 +743,12 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
 
           <div>
             <label className="block text-[11px] font-bold text-slate-500 mb-1">
-              {isBangla ? 'পরীক্ষার সাল' : 'Examination Year'}
+              {isBangla ? 'পরীক্ষার সাল' : 'Year'}
             </label>
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
+              className="w-full px-2.5 sm:px-3 py-2 min-h-[38px] rounded-xl border border-slate-200 text-xs font-semibold bg-slate-50"
             >
               <option value="ALL">{isBangla ? 'সকল সাল' : 'All Years'}</option>
               {availableYears.map((y) => (
@@ -704,43 +759,12 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             </select>
           </div>
         </div>
-
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-slate-100">
-          <div className="relative flex-1 min-w-[220px]">
-            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={isBangla ? 'প্রশ্ন, বিষয় বা অধ্যায় দিয়ে খুঁজুন...' : 'Search questions, subjects, or chapters...'}
-              className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-
-          {isAuthenticated && (
-            <button
-              onClick={toggleSelectAll}
-              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5"
-            >
-              <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-              <span>
-                {filteredQuestions.length > 0 && filteredQuestions.every((q) => selectedIds.has(q.id))
-                  ? isBangla
-                    ? 'নির্বাচন বাতিল করুন'
-                    : 'Deselect All'
-                  : isBangla
-                  ? 'সবগুলো নির্বাচন করুন'
-                  : 'Select All'}
-              </span>
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Questions List */}
-      <div className="space-y-4">
+      <div className="space-y-3.5 sm:space-y-4">
         {filteredQuestions.length === 0 ? (
-          <div className="bg-white p-12 rounded-2xl border border-slate-200 text-center">
+          <div className="bg-white p-10 sm:p-12 rounded-2xl border border-slate-200 text-center">
             <FileText className="w-10 h-10 text-slate-300 mx-auto mb-2" />
             <h3 className="text-sm font-bold text-slate-700">
               {isBangla ? 'কোনো প্রশ্ন পাওয়া যায়নি' : 'No questions match your filters'}
@@ -750,11 +774,11 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
           filteredQuestions.map((q) => {
             const isSelected = selectedIds.has(q.id);
             return (
-              <div key={q.id} className="flex items-start gap-3">
+              <div key={q.id} className="flex items-start gap-2 sm:gap-3">
                 {isAuthenticated && (
                   <button
                     onClick={() => toggleSelect(q.id)}
-                    className="mt-5 text-blue-600 shrink-0"
+                    className="mt-3.5 sm:mt-5 w-8 h-8 sm:w-auto sm:h-auto flex items-center justify-center text-blue-600 shrink-0 rounded-lg hover:bg-blue-50"
                     title="Select question"
                   >
                     {isSelected ? (
@@ -776,6 +800,30 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
               </div>
             );
           })
+        )}
+
+        {/* Mobile Floating Bulk Add Action Bar when items selected */}
+        {isAuthenticated && selectedIds.size > 0 && onBulkAddToPaper && (
+          <div className="sm:hidden fixed bottom-16 left-3 right-3 z-30 flex items-center justify-between gap-2 bg-slate-900 text-white px-4 py-2.5 rounded-2xl shadow-xl border border-slate-700">
+            <span className="text-xs font-bold">
+              {isBangla ? `${selectedIds.size}টি প্রশ্ন নির্বাচিত` : `${selectedIds.size} selected`}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setSelectedIds(new Set())}
+                className="px-2.5 py-1.5 text-[11px] font-semibold text-slate-300 hover:text-white"
+              >
+                {isBangla ? 'বাতিল' : 'Clear'}
+              </button>
+              <button
+                onClick={handleBulkAdd}
+                className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {isBangla ? 'প্রশ্নপত্রে যোগ করুন' : 'Add to Paper'}
+              </button>
+            </div>
+          </div>
         )}
 
         {/* Locked Content Gate Card at Bottom of Preview List */}

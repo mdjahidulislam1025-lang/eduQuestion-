@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { QuestionCard } from './QuestionCard';
+import { authenticatedFetch } from '../utils/security';
 import {
   Sparkles,
   Sliders,
@@ -119,9 +120,8 @@ export const QuestionGeneratorView: React.FC<QuestionGeneratorViewProps> = ({
     setSaveAllNotice(false);
 
     try {
-      const response = await fetch('/api/gemini/generate-questions', {
+      const response = await authenticatedFetch('/api/gemini/generate-questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           classLevel: selectedClass,
           subject: selectedSubject,

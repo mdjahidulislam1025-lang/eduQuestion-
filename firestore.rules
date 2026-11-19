@@ -65,35 +65,46 @@ service cloud.firestore {
     // Source Documents (Uploaded NCTB textbooks & board exam PDFs)
     match /source_documents/{documentId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdminOrOwner();
     }
 
     // Textbooks
     match /textbooks/{textbookId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdminOrOwner();
     }
 
     // Board Questions
     match /board_questions/{questionId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdminOrOwner();
     }
 
     // Saved Questions (Full Question Bank - Strictly requires sign-in via Google/Gmail or Email)
     match /saved_questions/{questionId} {
       allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn() && isValidId(questionId)
+      allow create: if isSignedIn() && isValidId(questionId)
         && incoming().id is string && incoming().id.size() <= 128
         && incoming().subject is string && incoming().subject.size() <= 128
-        && incoming().questionType in ['MCQ', 'SQ', 'CQ'];
-      allow delete: if isSignedIn();
+        && incoming().questionType in ['MCQ', 'SQ', 'CQ']
+        && (!('questionText' in incoming()) || (incoming().questionText is string && incoming().questionText.size() <= 25000));
+      allow update: if isSignedIn() && isValidId(questionId)
+        && (isAdminOrOwner() || existing().get('ownerId', '') == request.auth.uid || !('ownerId' in existing()))
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().subject is string && incoming().subject.size() <= 128
+        && incoming().questionType in ['MCQ', 'SQ', 'CQ']
+        && (!('questionText' in incoming()) || (incoming().questionText is string && incoming().questionText.size() <= 25000));
+      allow delete: if isAdminOrOwner() || (isSignedIn() && existing().get('ownerId', '') == request.auth.uid);
     }
 
     // Unified Central Repository Content & Knowledge
     match /repository_content/{itemId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdminOrOwner();
     }
 
     // Admin Uploaded PDFs
@@ -105,7 +116,7 @@ service cloud.firestore {
     // NCTB Books
     match /nctb_books/{bookId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if isAdminOrOwner();
     }
 
     // Question Papers (User-owned or Super Owner)
@@ -117,7 +128,7 @@ service cloud.firestore {
 
     // Activity Logs
     match /activity_logs/{logId} {
-      allow get, list: if isSignedIn();
+      allow get, list: if isAdminOrOwner() || (isSignedIn() && existing().get('userId', '') == request.auth.uid);
       allow create: if isSignedIn();
       allow update, delete: if false; // immutable audit log
     }
@@ -177,10 +188,21 @@ service cloud.firestore {
       allow get, list, update, delete: if isAdminOrOwner();
     }
 
-    // Public Site Stats & View Counter (accessible to all visitors)
+    // Public Site Stats & View Counter (schema-checked & monotonic against tampering/reset)
     match /site_stats/{statId} {
       allow get: if true;
-      allow create, update: if statId == 'main_counter';
+      allow create: if statId == 'main_counter'
+        && incoming().keys().hasOnly(['id', 'totalViews', 'uniqueVisitors', 'totalAppDownloads', 'androidDownloads', 'iosDownloads', 'desktopDownloads', 'lastVisitedAt', 'lastDownloadedAt', 'createdAt'])
+        && incoming().id == 'main_counter'
+        && incoming().get('totalViews', 0) is int && incoming().get('totalViews', 0) >= 0 && incoming().get('totalViews', 0) <= 5000;
+      allow update: if statId == 'main_counter'
+        && incoming().keys().hasOnly(['id', 'totalViews', 'uniqueVisitors', 'totalAppDownloads', 'androidDownloads', 'iosDownloads', 'desktopDownloads', 'lastVisitedAt', 'lastDownloadedAt', 'createdAt'])
+        && incoming().get('totalViews', 0) is int
+        && incoming().get('totalViews', 0) >= existing().get('totalViews', 0)
+        && incoming().get('totalViews', 0) <= existing().get('totalViews', 0) + 10
+        && incoming().get('totalAppDownloads', 0) is int
+        && incoming().get('totalAppDownloads', 0) >= existing().get('totalAppDownloads', 0)
+        && incoming().get('totalAppDownloads', 0) <= existing().get('totalAppDownloads', 0) + 5;
       allow delete: if isAdminOrOwner();
     }
   }

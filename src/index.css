@@ -1,6 +1,12 @@
 @import "tailwindcss";
 
 @layer base {
+  html,
+  body {
+    overflow-x: clip;
+    -webkit-tap-highlight-color: transparent;
+  }
+
   body {
     font-family: 'Inter', 'Hind Siliguri', -apple-system, BlinkMacSystemFont, sans-serif;
     color: #0f172a;
@@ -14,6 +20,19 @@
   .font-serif-bangla {
     font-family: 'Noto Serif Bengali', serif;
   }
+}
+
+/* Mobile ergonomic helpers */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Print styling for professional A4 examination papers */
@@ -104,6 +123,7 @@
 /* KaTeX formula display improvements */
 .katex-display {
   margin: 0.5em 0 !important;
+  max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
 }

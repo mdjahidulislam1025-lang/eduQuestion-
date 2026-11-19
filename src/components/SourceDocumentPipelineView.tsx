@@ -8,6 +8,7 @@ import {
 } from '../types';
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { authenticatedFetch } from '../utils/security';
 import {
   Upload,
   FileText,
@@ -105,9 +106,8 @@ export const SourceDocumentPipelineView: React.FC<SourceDocumentPipelineViewProp
 
     try {
       // Call Gemini extraction pipeline
-      const res = await fetch('/api/gemini/extract-textbook', {
+      const res = await authenticatedFetch('/api/gemini/extract-textbook', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rawText: pastedText || `NCTB ${subject} (${classLevel}) syllabus chapter.`,
           classLevel,

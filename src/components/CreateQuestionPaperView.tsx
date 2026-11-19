@@ -16,6 +16,7 @@ import {
   addQuestionsToPaperSections,
 } from '../services/sectionOrganizer';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { sanitizeSvg } from '../utils/security';
 import {
   CheckSquare,
   Square,
@@ -664,7 +665,7 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                           {(q.diagramSvg || q.diagramUrl) && (
                             <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                               {q.diagramSvg && (
-                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }} />
                               )}
                               {q.diagramUrl && (
                                 <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
@@ -692,7 +693,7 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                           {(q.diagramSvg || q.diagramUrl) && (
                             <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                               {q.diagramSvg && (
-                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }} />
                               )}
                               {q.diagramUrl && (
                                 <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
@@ -1215,7 +1216,7 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                                         {(q.diagramSvg || q.diagramUrl) && (
                                           <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                                             {q.diagramSvg && (
-                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }} />
                                             )}
                                             {q.diagramUrl && (
                                               <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
@@ -1243,7 +1244,7 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                                         {(q.diagramSvg || q.diagramUrl) && (
                                           <div className="my-1.5 flex flex-col items-center p-2 bg-white rounded-lg border border-slate-200">
                                             {q.diagramSvg && (
-                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                              <div className="max-w-full max-h-[140px]" dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }} />
                                             )}
                                             {q.diagramUrl && (
                                               <img src={q.diagramUrl} alt={q.diagramCaption || 'Diagram'} className="max-h-36 object-contain rounded" />
@@ -1380,7 +1381,7 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                           {(q.diagramSvg || q.diagramUrl) && (
                             <div className="my-2 flex flex-col items-center justify-center pl-4">
                               {q.diagramSvg && (
-                                <div className="max-w-full max-h-[150px]" dangerouslySetInnerHTML={{ __html: q.diagramSvg }} />
+                                <div className="max-w-full max-h-[150px]" dangerouslySetInnerHTML={{ __html: sanitizeSvg(q.diagramSvg) }} />
                               )}
                               {q.diagramUrl && (
                                 <img

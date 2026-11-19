@@ -13,6 +13,7 @@ import {
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { authenticatedFetch } from '../utils/security';
 import {
   FileText,
   Upload,
@@ -298,9 +299,8 @@ export const AdminPdfLibraryView: React.FC<AdminPdfLibraryViewProps> = ({
         ];
 
         try {
-          const res = await fetch('/api/pdf/extract-chunks', {
+          const res = await authenticatedFetch('/api/pdf/extract-chunks', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               title: uploadFiles.length === 1 ? uploadTitle : file.name.replace(/\.[^/.]+$/, ''),
               rawText: sampleText,
@@ -397,9 +397,8 @@ export const AdminPdfLibraryView: React.FC<AdminPdfLibraryViewProps> = ({
       const primaryDoc = selectedDocs[0];
       const combinedChunks = selectedDocs.flatMap((d) => d.extractedChunks || []);
 
-      const response = await fetch('/api/gemini/generate-from-pdf', {
+      const response = await authenticatedFetch('/api/gemini/generate-from-pdf', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pdfTitle: selectedDocs.length > 1 ? `${selectedDocs.length} Documents Combined` : primaryDoc.title,
           pdfId: primaryDoc.id,

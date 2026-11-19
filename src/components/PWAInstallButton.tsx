@@ -306,36 +306,36 @@ npx cap open ios
         typeof document !== 'undefined' &&
         createPortal(
           <div
-            className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-900/65 backdrop-blur-xs p-4"
+            className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-slate-900/65 backdrop-blur-xs p-0 sm:p-4"
             onClick={(e) => {
               if (e.target === e.currentTarget) setShowModal(false);
             }}
           >
-            <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92vh] flex flex-col overflow-hidden">
+            <div className="bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl border border-slate-200 w-full max-w-2xl max-h-[92dvh] flex flex-col overflow-hidden">
               {/* Modal Header */}
-              <div className="px-6 py-4 bg-gradient-to-r from-blue-700 to-indigo-700 text-white flex items-center justify-between shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl border border-white/30 shadow-sm bg-blue-800 overflow-hidden shrink-0 flex items-center justify-center">
+              <div className="px-4 py-3.5 sm:px-6 sm:py-4 bg-gradient-to-r from-blue-700 to-indigo-700 text-white flex items-center justify-between shrink-0">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl border border-white/30 shadow-sm bg-blue-800 overflow-hidden shrink-0 flex items-center justify-center">
                     <img
                       src="/icon.svg"
                       alt="EduQuestion AI App Icon"
                       className="w-full h-full object-cover"
                     />
                   </div>
-                  <div>
-                    <h3 className="font-bold text-base sm:text-lg leading-tight font-bangla">
-                      EduQuestion AI — Android ও iOS মোবাইল অ্যাপ
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-sm sm:text-lg leading-tight font-bangla truncate">
+                      EduQuestion AI — মোবাইল অ্যাপ
                     </h3>
-                    <p className="text-[11px] text-blue-100">
+                    <p className="text-[11px] text-blue-100 truncate">
                       {isAdmin
-                        ? 'সরাসরি ফোনে ইনস্টল করুন অথবা Google Play (.APK / .AAB) ও iOS প্যাকেজ তৈরি করুন'
-                        : 'আপনার Android ও iPhone-এ সহজেই ফুল-স্ক্রিন অ্যাপ হিসেবে ইনস্টল করুন'}
+                        ? 'ফোনে ইনস্টল অথবা Google Play (.APK/.AAB) তৈরি করুন'
+                        : 'Android ও iPhone-এ সহজেই অ্যাপ হিসেবে ইনস্টল করুন'}
                     </p>
                   </div>
                 </div>
                 <button
                   onClick={() => setShowModal(false)}
-                  className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors"
+                  className="p-2 rounded-lg bg-white/10 hover:bg-white/20 text-white transition-colors shrink-0"
                   aria-label="Close"
                 >
                   <X className="w-5 h-5" />
@@ -344,15 +344,15 @@ npx cap open ios
 
               {/* Admin-Only Live App Download Count Strip */}
               {isAdmin && (
-                <div className="px-6 py-2.5 bg-indigo-950 text-white flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
+                <div className="px-4 sm:px-6 py-2.5 bg-indigo-950 text-white flex flex-wrap items-center justify-between gap-2 text-xs shrink-0">
                   <div className="flex items-center gap-2 font-bold">
                     <Lock className="w-3.5 h-3.5 text-amber-300" />
                     <span>মোট অ্যাপ ডাউনলোড / ইনস্টল:</span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black">
+                    <span className="px-2 py-0.5 rounded-full bg-emerald-500 text-white font-black tabular-nums">
                       {formatBengaliNumber(downloadStats.totalAppDownloads)} জন
                     </span>
                   </div>
-                  <div className="flex items-center gap-3 text-[11px] text-blue-200">
+                  <div className="flex items-center gap-2.5 text-[11px] text-blue-200 tabular-nums">
                     <span>Android: <strong className="text-white">{formatBengaliNumber(downloadStats.androidDownloads)}</strong></span>
                     <span>•</span>
                     <span>iOS: <strong className="text-white">{formatBengaliNumber(downloadStats.iosDownloads)}</strong></span>
@@ -363,10 +363,10 @@ npx cap open ios
               )}
 
               {/* Tabs */}
-              <div className="flex border-b border-slate-200 bg-slate-50 px-6 gap-2 overflow-x-auto shrink-0">
+              <div className="flex border-b border-slate-200 bg-slate-50 px-4 sm:px-6 gap-2 overflow-x-auto no-scrollbar shrink-0">
                 <button
                   onClick={() => setActiveTab('install')}
-                  className={`py-3 px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`py-3 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                     activeTab === 'install'
                       ? 'border-blue-600 text-blue-700'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
@@ -378,30 +378,30 @@ npx cap open ios
                 {isAdmin && (
                   <button
                     onClick={() => setActiveTab('apk')}
-                    className={`py-3 px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                    className={`py-3 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                       activeTab === 'apk'
                         ? 'border-blue-600 text-blue-700'
                         : 'border-transparent text-slate-500 hover:text-slate-800'
                     }`}
                   >
-                    <Package className="w-3.5 h-3.5" /> APK ও AAB ফাইল ডাউনলোড (Admin Only)
+                    <Package className="w-3.5 h-3.5" /> APK ও AAB (Admin)
                   </button>
                 )}
 
                 <button
                   onClick={() => setActiveTab('ios')}
-                  className={`py-3 px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+                  className={`py-3 px-2.5 sm:px-3 text-xs font-bold border-b-2 transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
                     activeTab === 'ios'
                       ? 'border-blue-600 text-blue-700'
                       : 'border-transparent text-slate-500 hover:text-slate-800'
                   }`}
                 >
-                  <Apple className="w-3.5 h-3.5" /> iPhone / iPad (iOS)
+                  <Apple className="w-3.5 h-3.5" /> iPhone / iPad
                 </button>
               </div>
 
               {/* Scrollable Body */}
-              <div className="p-6 overflow-y-auto flex-1 space-y-5 font-bangla">
+              <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5 font-bangla">
                 {activeTab === 'install' && (
                   <div className="space-y-4">
                     {/* Live Status */}

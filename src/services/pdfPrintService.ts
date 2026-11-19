@@ -242,6 +242,8 @@ export function printExamPaperIsolated(elementId: string): void {
     .map((el) => el.outerHTML)
     .join('\n');
 
+  const safePrintableHtml = target.outerHTML.replace(/<script[\s\S]*?>[\s\S]*?<\/script>/gi, '');
+
   iframeDoc.open();
   iframeDoc.write(`
     <!DOCTYPE html>
@@ -308,7 +310,7 @@ export function printExamPaperIsolated(elementId: string): void {
       </head>
       <body>
         <div class="print-container">
-          ${target.outerHTML}
+          ${safePrintableHtml}
         </div>
       </body>
     </html>

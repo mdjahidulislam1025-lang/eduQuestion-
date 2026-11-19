@@ -17,6 +17,7 @@ import { QuestionSelectorModal } from './QuestionSelectorModal';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
 import { organizeQuestionsIntoSections } from '../services/sectionOrganizer';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { authenticatedFetch } from '../utils/security';
 import {
   Zap,
   Sparkles,
@@ -293,9 +294,8 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
       const targetPdf = accessibleAdminPdfs.find((p) => p.id === selectedAdminPdfId) || accessibleAdminPdfs[0];
 
       if (questionSource === 'ADMIN_PDFS' && targetPdf) {
-        response = await fetch('/api/gemini/generate-from-pdf', {
+        response = await authenticatedFetch('/api/gemini/generate-from-pdf', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             pdfTitle: targetPdf.title,
             pdfId: targetPdf.id,
@@ -314,9 +314,8 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
           }),
         });
       } else {
-        response = await fetch('/api/gemini/generate-questions', {
+        response = await authenticatedFetch('/api/gemini/generate-questions', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             classLevel: selectedClass,
             subject: currentSubjectObj.nameEn,
@@ -390,9 +389,8 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
 
     setRegeneratingId(questionId);
     try {
-      const response = await fetch('/api/gemini/generate-questions', {
+      const response = await authenticatedFetch('/api/gemini/generate-questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           classLevel: targetQ.classLevel,
           subject: targetQ.subject,

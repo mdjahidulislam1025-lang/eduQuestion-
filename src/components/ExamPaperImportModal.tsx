@@ -12,6 +12,7 @@ import {
 import { BANGLADESH_BOARDS, BOARD_EXAM_YEARS, NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
 import { isMathSubject } from '../utils/questionMediaHelper';
+import { authenticatedFetch } from '../utils/security';
 import {
   FileUp,
   Upload,
@@ -146,9 +147,8 @@ export const ExamPaperImportModal: React.FC<ExamPaperImportModalProps> = ({
     setStatusMessage(isBangla ? 'পরীক্ষা পত্র বিশ্লেষণ ও প্রশ্নপত্র পৃথকীকরণ চলছে...' : 'Analyzing exam paper and digitizing questions...');
 
     try {
-      const response = await fetch('/api/gemini/extract-exam-questions', {
+      const response = await authenticatedFetch('/api/gemini/extract-exam-questions', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           rawText: textToAnalyze,
           examName: examName || `${subject} ${examType}`,
