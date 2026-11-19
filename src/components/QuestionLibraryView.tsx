@@ -12,6 +12,7 @@ import {
   compressDiagramImage,
   cleanOptionPaste,
   parseSmartQuestionText,
+  isMathSubject,
 } from '../utils/questionMediaHelper';
 import {
   Library,
@@ -31,6 +32,9 @@ import {
   Eye,
   Sparkles,
   Loader2,
+  Lock,
+  LogIn,
+  ShieldCheck,
 } from 'lucide-react';
 
 export const STANDARD_BOARDS = [
@@ -112,6 +116,10 @@ export const DEFAULT_SSC_SUBJECTS = [
 interface QuestionLibraryViewProps {
   questions: Question[];
   currentUserRole?: UserRole;
+  isAuthenticated?: boolean;
+  lockedTotalCount?: number;
+  onRequireAuth?: () => void;
+  onGoogleSignIn?: () => void;
   isBangla?: boolean;
   dynamicClasses?: DynamicClassItem[];
   dynamicSubjects?: DynamicSubjectItem[];
@@ -125,6 +133,10 @@ interface QuestionLibraryViewProps {
 export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
   questions,
   currentUserRole = 'OWNER',
+  isAuthenticated = true,
+  lockedTotalCount,
+  onRequireAuth,
+  onGoogleSignIn,
   isBangla = true,
   dynamicClasses = [],
   dynamicSubjects = [],
@@ -405,12 +417,18 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
       diagramCaption: newDiagramCaption.trim() || undefined,
       cqParts:
         newType === 'CQ'
-          ? {
-              partA: { question: newPartA.trim() || 'জ্ঞানমূলক প্রশ্ন', marks: 1 },
-              partB: { question: newPartB.trim() || 'অনুধাবনমূলক প্রশ্ন', marks: 2 },
-              partC: { question: newPartC.trim() || 'প্রয়োগমূলক প্রশ্ন', marks: 3 },
-              partD: { question: newPartD.trim() || 'উচ্চতর দক্ষতামূলক প্রশ্ন', marks: 4 },
-            }
+          ? isMathSubject(finalSubject)
+            ? {
+                partA: { question: newPartA.trim() || 'ক. প্রশ্ন', marks: 2 },
+                partB: { question: newPartB.trim() || 'খ. প্রশ্ন', marks: 4 },
+                partC: { question: newPartC.trim() || 'গ. প্রশ্ন', marks: 4 },
+              }
+            : {
+                partA: { question: newPartA.trim() || 'জ্ঞানমূলক প্রশ্ন', marks: 1 },
+                partB: { question: newPartB.trim() || 'অনুধাবনমূলক প্রশ্ন', marks: 2 },
+                partC: { question: newPartC.trim() || 'প্রয়োগমূলক প্রশ্ন', marks: 3 },
+                partD: { question: newPartD.trim() || 'উচ্চতর দক্ষতামূলক প্রশ্ন', marks: 4 },
+              }
           : undefined,
       options: newType === 'MCQ' ? cleanedOptions : undefined,
       correctOptionIndex: newType === 'MCQ' ? newCorrectIdx : undefined,
@@ -463,15 +481,21 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
               {isBangla ? 'এসএসসি প্রশ্ন ব্যাংক (Question Bank)' : 'SSC Question Bank'}
             </h1>
             <p className="text-xs text-slate-500">
-              {isBangla
-                ? `মোট ${questions.length}টি সংরক্ষিত প্রশ্ন • বিষয়, অধ্যায় ও ধরন অনুযায়ী সাজানো`
-                : `${questions.length} stored SSC questions organized by Subject, Chapter, Type, Board & Year`}
+              {!isAuthenticated ? (
+                isBangla
+                  ? `প্রিভিউ মোড: ${questions.length}টি নমুনা প্রশ্ন দেখা যাচ্ছে • মোট ${lockedTotalCount || 70}+ প্রশ্ন দেখতে লগইন করুন`
+                  : `Preview Mode: Showing ${questions.length} sample questions • Sign in to view all ${lockedTotalCount || 70}+ questions`
+              ) : isBangla ? (
+                `মোট ${questions.length}টি সংরক্ষিত প্রশ্ন • বিষয়, অধ্যায় ও ধরন অনুযায়ী সাজানো`
+              ) : (
+                `${questions.length} stored SSC questions organized by Subject, Chapter, Type, Board & Year`
+              )}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 flex-wrap">
-          {selectedIds.size > 0 && onBulkAddToPaper && (
+          {isAuthenticated && selectedIds.size > 0 && onBulkAddToPaper && (
             <button
               onClick={handleBulkAdd}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
@@ -483,7 +507,7 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             </button>
           )}
 
-          {onAddQuestion && (
+          {isAuthenticated && onAddQuestion ? (
             <button
               onClick={() => setShowAddModal(true)}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs"
@@ -491,9 +515,66 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
               <Plus className="w-4 h-4 text-emerald-400" />
               {isBangla ? 'নতুন প্রশ্ন যোগ করুন' : 'Add Question Manually'}
             </button>
-          )}
+          ) : !isAuthenticated ? (
+            <button
+              onClick={() => onRequireAuth?.()}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <LogIn className="w-4 h-4" />
+              {isBangla ? 'লগইন করে সব দেখুন' : 'Sign In to Unlock All'}
+            </button>
+          ) : null}
         </div>
       </div>
+
+      {/* Preview Mode Notice Banner for Unauthenticated Visitors */}
+      {!isAuthenticated && (
+        <div className="bg-gradient-to-r from-blue-50 via-indigo-50 to-sky-50 border border-blue-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Lock className="w-5 h-5" />
+            </div>
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs sm:text-sm font-extrabold text-slate-900">
+                  {isBangla
+                    ? 'সীমিত প্রিভিউ মোড (Guest Preview)'
+                    : 'Limited Guest Preview Mode'}
+                </span>
+                <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300 text-[10px] font-bold">
+                  {isBangla
+                    ? `${questions.length}টি নমুনা প্রদর্শিত`
+                    : `${questions.length} Samples Shown`}
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                {isBangla
+                  ? `আপনি বর্তমানে শুধুমাত্র ${questions.length}টি নমুনা প্রশ্ন দেখতে পাচ্ছেন। সম্পূর্ণ প্রশ্ন ব্যাংকের ${lockedTotalCount || 70}+ প্রশ্ন, বোর্ড আর্কাইভ এবং A4 PDF প্রশ্নপত্র তৈরি আনলক করতে Gmail বা যেকোনো ইমেইল দিয়ে লগইন করুন।`
+                  : `You are viewing ${questions.length} preview samples. Sign in with Gmail or any Email to unlock all ${lockedTotalCount || 70}+ questions, full filters, and A4 PDF paper builder.`}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {onGoogleSignIn && (
+              <button
+                onClick={onGoogleSignIn}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-2 shadow-2xs cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-blue-600" />
+                <span>{isBangla ? 'Gmail দিয়ে লগইন' : 'Google Sign In'}</span>
+              </button>
+            )}
+            <button
+              onClick={() => onRequireAuth?.()}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs cursor-pointer"
+            >
+              <LogIn className="w-3.5 h-3.5" />
+              <span>{isBangla ? 'ইমেইল লগইন / সাইন-আপ' : 'Email Sign In'}</span>
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Question Type Tabs (Only show types that exist) */}
       <div className="flex flex-wrap items-center gap-2">
@@ -636,21 +717,23 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             />
           </div>
 
-          <button
-            onClick={toggleSelectAll}
-            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5"
-          >
-            <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
-            <span>
-              {filteredQuestions.length > 0 && filteredQuestions.every((q) => selectedIds.has(q.id))
-                ? isBangla
-                  ? 'নির্বাচন বাতিল করুন'
-                  : 'Deselect All'
-                : isBangla
-                ? 'সবগুলো নির্বাচন করুন'
-                : 'Select All'}
-            </span>
-          </button>
+          {isAuthenticated && (
+            <button
+              onClick={toggleSelectAll}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5"
+            >
+              <CheckSquare className="w-3.5 h-3.5 text-blue-600" />
+              <span>
+                {filteredQuestions.length > 0 && filteredQuestions.every((q) => selectedIds.has(q.id))
+                  ? isBangla
+                    ? 'নির্বাচন বাতিল করুন'
+                    : 'Deselect All'
+                  : isBangla
+                  ? 'সবগুলো নির্বাচন করুন'
+                  : 'Select All'}
+              </span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -668,28 +751,77 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
             const isSelected = selectedIds.has(q.id);
             return (
               <div key={q.id} className="flex items-start gap-3">
-                <button
-                  onClick={() => toggleSelect(q.id)}
-                  className="mt-5 text-blue-600 shrink-0"
-                  title="Select question"
-                >
-                  {isSelected ? (
-                    <CheckSquare className="w-5 h-5" />
-                  ) : (
-                    <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
-                  )}
-                </button>
+                {isAuthenticated && (
+                  <button
+                    onClick={() => toggleSelect(q.id)}
+                    className="mt-5 text-blue-600 shrink-0"
+                    title="Select question"
+                  >
+                    {isSelected ? (
+                      <CheckSquare className="w-5 h-5" />
+                    ) : (
+                      <Square className="w-5 h-5 text-slate-400 hover:text-slate-600" />
+                    )}
+                  </button>
+                )}
                 <div className="flex-1 min-w-0">
                   <QuestionCard
                     question={q}
-                    onUpdate={onUpdateQuestion}
-                    onDelete={(id) => setDeleteConfirmId(id)}
-                    onAddToPaper={onAddToPaper}
+                    readOnly={!isAuthenticated}
+                    onUpdate={isAuthenticated ? onUpdateQuestion : undefined}
+                    onDelete={isAuthenticated ? (id) => setDeleteConfirmId(id) : undefined}
+                    onAddToPaper={isAuthenticated ? onAddToPaper : undefined}
                   />
                 </div>
               </div>
             );
           })
+        )}
+
+        {/* Locked Content Gate Card at Bottom of Preview List */}
+        {!isAuthenticated && (
+          <div className="relative overflow-hidden bg-white rounded-3xl border-2 border-blue-200 p-6 sm:p-8 text-center shadow-sm space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md shadow-blue-500/20">
+              <Lock className="w-7 h-7" />
+            </div>
+
+            <div className="space-y-1.5 max-w-xl mx-auto">
+              <h3 className="text-lg sm:text-xl font-black text-slate-900">
+                {isBangla
+                  ? `আরও ${Math.max((lockedTotalCount || 70) - questions.length, 60)}+ প্রশ্ন ও সম্পূর্ণ ফিচার লক করা আছে`
+                  : `${Math.max((lockedTotalCount || 70) - questions.length, 60)}+ More Questions & Full Features Locked`}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {isBangla
+                  ? 'নমুনা হিসেবে অল্প কিছু প্রশ্ন দেখানো হয়েছে। আপনার ব্যক্তিগত Gmail অথবা যেকোনো ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করলেই সকল অধ্যায়ের MCQ, সংক্ষিপ্ত (SQ), সৃজনশীল (CQ), প্রশ্নপত্র তৈরি ও A4 PDF প্রিন্ট সুবিধা সম্পূর্ণ আনলক হয়ে যাবে।'
+                  : 'Only a small sample preview is visible without signing in. Log in with your Google (Gmail) or any Email account to immediately unlock all chapters, board questions, AI solutions, and A4 PDF exam paper generation.'}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+              {onGoogleSignIn && (
+                <button
+                  onClick={onGoogleSignIn}
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs transition-all cursor-pointer"
+                >
+                  <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>{isBangla ? 'Google / Gmail দিয়ে লগইন করুন' : 'Continue with Google (Gmail)'}</span>
+                </button>
+              )}
+              <button
+                onClick={() => onRequireAuth?.()}
+                className="px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+              >
+                <LogIn className="w-4 h-4" />
+                <span>{isBangla ? 'ইমেইল বা নতুন অ্যাকাউন্ট দিয়ে লগইন' : 'Sign In / Create Account'}</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
 
@@ -1170,48 +1302,62 @@ export const QuestionLibraryView: React.FC<QuestionLibraryViewProps> = ({
                       className="w-full p-2.5 rounded-xl border border-slate-200 text-xs font-bangla"
                     />
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">ক (জ্ঞানমূলক - ১)</label>
-                      <input
-                        type="text"
-                        value={newPartA}
-                        onChange={(e) => setNewPartA(e.target.value)}
-                        placeholder="ক. প্রশ্ন..."
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">খ (অনুধাবন - ২)</label>
-                      <input
-                        type="text"
-                        value={newPartB}
-                        onChange={(e) => setNewPartB(e.target.value)}
-                        placeholder="খ. প্রশ্ন..."
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">গ (প্রয়োগ - ৩)</label>
-                      <input
-                        type="text"
-                        value={newPartC}
-                        onChange={(e) => setNewPartC(e.target.value)}
-                        placeholder="গ. প্রশ্ন..."
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-700 mb-1">ঘ (উচ্চতর দক্ষতা - ৪)</label>
-                      <input
-                        type="text"
-                        value={newPartD}
-                        onChange={(e) => setNewPartD(e.target.value)}
-                        placeholder="ঘ. প্রশ্ন..."
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
-                      />
-                    </div>
-                  </div>
+                  {(() => {
+                    const currentSubjectName = customSubjectMode ? customSubjectText : newSubject;
+                    const isMath = isMathSubject(currentSubjectName);
+                    return (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            {isMath ? 'ক (২ নম্বর)' : 'ক (জ্ঞানমূলক - ১)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={newPartA}
+                            onChange={(e) => setNewPartA(e.target.value)}
+                            placeholder="ক. প্রশ্ন..."
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            {isMath ? 'খ (৪ নম্বর)' : 'খ (অনুধাবন - ২)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={newPartB}
+                            onChange={(e) => setNewPartB(e.target.value)}
+                            placeholder="খ. প্রশ্ন..."
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
+                            {isMath ? 'গ (৪ নম্বর)' : 'গ (প্রয়োগ - ৩)'}
+                          </label>
+                          <input
+                            type="text"
+                            value={newPartC}
+                            onChange={(e) => setNewPartC(e.target.value)}
+                            placeholder="গ. প্রশ্ন..."
+                            className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
+                          />
+                        </div>
+                        {!isMath && (
+                          <div>
+                            <label className="block text-xs font-bold text-slate-700 mb-1">ঘ (উচ্চতর দক্ষতা - ৪)</label>
+                            <input
+                              type="text"
+                              value={newPartD}
+                              onChange={(e) => setNewPartD(e.target.value)}
+                              placeholder="ঘ. প্রশ্ন..."
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 text-xs font-bangla"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </div>
               ) : (
                 <div className="space-y-3">

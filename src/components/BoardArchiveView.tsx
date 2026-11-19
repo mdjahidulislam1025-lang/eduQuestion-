@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { BoardExamQuestionRecord, Question, ClassLevel, QuestionType } from '../types';
 import { BANGLADESH_BOARDS, BOARD_EXAM_YEARS, NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   Award,
   Search,
@@ -416,26 +417,34 @@ export const BoardArchiveView: React.FC<BoardArchiveViewProps> = ({
                         <span>
                           <strong>ক.</strong> <MathRenderer content={record.cqParts.partA.question} />
                         </span>
-                        <span className="font-bold text-slate-500 ml-3">১</span>
+                        <span className="font-bold text-slate-500 ml-3">
+                          {isMathSubject(record.subject) ? '২' : '১'}
+                        </span>
                       </div>
                       <div className="flex justify-between items-start text-sm">
                         <span>
                           <strong>খ.</strong> <MathRenderer content={record.cqParts.partB.question} />
                         </span>
-                        <span className="font-bold text-slate-500 ml-3">২</span>
+                        <span className="font-bold text-slate-500 ml-3">
+                          {isMathSubject(record.subject) ? '৪' : '২'}
+                        </span>
                       </div>
                       <div className="flex justify-between items-start text-sm">
                         <span>
                           <strong>গ.</strong> <MathRenderer content={record.cqParts.partC.question} />
                         </span>
-                        <span className="font-bold text-slate-500 ml-3">৩</span>
-                      </div>
-                      <div className="flex justify-between items-start text-sm">
-                        <span>
-                          <strong>ঘ.</strong> <MathRenderer content={record.cqParts.partD.question} />
+                        <span className="font-bold text-slate-500 ml-3">
+                          {isMathSubject(record.subject) ? '৪' : '৩'}
                         </span>
-                        <span className="font-bold text-slate-500 ml-3">৪</span>
                       </div>
+                      {!isMathSubject(record.subject) && record.cqParts.partD && (
+                        <div className="flex justify-between items-start text-sm">
+                          <span>
+                            <strong>ঘ.</strong> <MathRenderer content={record.cqParts.partD.question} />
+                          </span>
+                          <span className="font-bold text-slate-500 ml-3">৪</span>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -490,9 +499,11 @@ export const BoardArchiveView: React.FC<BoardArchiveViewProps> = ({
                             <p>
                               <strong>গ-এর উত্তর:</strong> <MathRenderer content={record.cqParts.partC.answer || ''} />
                             </p>
-                            <p>
-                              <strong>ঘ-এর উত্তর:</strong> <MathRenderer content={record.cqParts.partD.answer || ''} />
-                            </p>
+                            {!isMathSubject(record.subject) && record.cqParts.partD && (
+                              <p>
+                                <strong>ঘ-এর উত্তর:</strong> <MathRenderer content={record.cqParts.partD.answer || ''} />
+                              </p>
+                            )}
                           </div>
                         ) : (
                           <p>

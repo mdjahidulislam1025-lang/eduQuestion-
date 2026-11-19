@@ -30,7 +30,9 @@ service cloud.firestore {
 
     // Role helpers
     function isSuperOwner() {
-      return isSignedIn() && request.auth.token.email == 'mdjahidulislam1025@gmail.com';
+      return isSignedIn() &&
+        request.auth.token.email == 'mdjahidulislam1025@gmail.com' &&
+        request.auth.token.email_verified == true;
     }
 
     // Connection test document
@@ -42,22 +44,22 @@ service cloud.firestore {
     match /users/{userId} {
       allow get: if isUser(userId) || isSuperOwner();
       allow list: if isSuperOwner();
-      allow create: if isUser(userId);
-      allow update: if isUser(userId) && incoming().uid == existing().uid;
+      allow create: if isUser(userId) && incoming().uid == userId && (!('role' in incoming()) || incoming().role == 'USER' || isSuperOwner());
+      allow update: if isUser(userId) && incoming().uid == existing().uid && (isSuperOwner() || incoming().get('role', 'USER') == existing().get('role', 'USER'));
       allow delete: if isUser(userId) || isSuperOwner();
     }
 
-    // Workspaces & Branding
+    // Workspaces & Branding (Public workspace header read by ID only; writes restricted to owner)
     match /workspaces/{workspaceId} {
-      allow get, list: if true;
-      allow create, update: if isSignedIn() || isSuperOwner();
-      allow delete: if isSuperOwner();
+      allow get: if true;
+      allow list: if isSignedIn();
+      allow create, update, delete: if isSuperOwner();
     }
 
     // Workspace Members
     match /workspace_members/{memberId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if isSuperOwner();
     }
 
     // Source Documents (Uploaded NCTB textbooks & board exam PDFs)
@@ -78,11 +80,14 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Saved Questions (Question Bank - Accessible for all students/teachers to view and create papers)
+    // Saved Questions (Full Question Bank - Strictly requires sign-in via Google/Gmail or Email)
     match /saved_questions/{questionId} {
-      allow get, list: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn();
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn() && isValidId(questionId)
+        && incoming().id is string && incoming().id.size() <= 128
+        && incoming().subject is string && incoming().subject.size() <= 128
+        && incoming().questionType in ['MCQ', 'SQ', 'CQ'];
+      allow delete: if isSignedIn();
     }
 
     // Unified Central Repository Content & Knowledge
@@ -94,7 +99,7 @@ service cloud.firestore {
     // Admin Uploaded PDFs
     match /admin_pdfs/{docId} {
       allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow create, update, delete: if isAdminOrOwner();
     }
 
     // NCTB Books
@@ -103,10 +108,11 @@ service cloud.firestore {
       allow create, update, delete: if isSignedIn();
     }
 
-    // Question Papers
+    // Question Papers (User-owned or Super Owner)
     match /question_papers/{paperId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get, list: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
+      allow create: if isSignedIn() && isValidId(paperId) && incoming().ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
     }
 
     // Activity Logs
@@ -153,27 +159,28 @@ service cloud.firestore {
 
     // Question Papers (camelCase alias)
     match /questionPapers/{paperId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isSignedIn();
+      allow get, list: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
+      allow create: if isSignedIn() && isValidId(paperId) && incoming().ownerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (existing().ownerId == request.auth.uid || isSuperOwner());
     }
 
     // Public / User Submitted Questions
     match /submitted_questions/{questionId} {
-      allow create: if true; // Any visitor from Vercel link can submit questions
-      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow get, list: if isAdminOrOwner();
       allow update, delete: if isAdminOrOwner();
     }
 
     // Admin Notifications
     match /admin_notifications/{notificationId} {
-      allow create: if true;
+      allow create: if isSignedIn();
       allow get, list, update, delete: if isAdminOrOwner();
     }
 
     // Public Site Stats & View Counter (accessible to all visitors)
     match /site_stats/{statId} {
       allow get: if true;
-      allow create, update: if true;
+      allow create, update: if statId == 'main_counter';
       allow delete: if isAdminOrOwner();
     }
   }

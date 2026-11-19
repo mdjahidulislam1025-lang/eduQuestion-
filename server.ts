@@ -115,9 +115,22 @@ app.post('/api/gemini/generate-questions', async (req, res) => {
         ? 'Write in Bangla with key technical/scientific terms in English in brackets.'
         : 'Write all questions, options, and explanations in fluent, grammatically correct Bangla (বাংলা) adhering strictly to standard NCTB textbook terminology.';
 
+    const isMath = /math|গণিত/i.test(subject || '');
+
     let typeSpecificGuidance = '';
     if (questionType === 'CQ') {
-      typeSpecificGuidance = `
+      typeSpecificGuidance = isMath
+        ? `
+MATH CREATIVE QUESTION (গণিত সৃজনশীল প্রশ্ন / CQ) STRICT SPECIFICATION (3 Questions Only — Marks: 2, 4, 4 = 10 Total):
+- Each Math CQ MUST strictly contain a mathematical Stimulus (উদ্দীপক: equations, geometric properties, algebraic relations, trigonometry, sets, or data).
+- Generate ONLY 3 sub-questions (ক, খ, গ). DO NOT generate partD (ঘ)!
+- ক (Part A - 2 marks): Short mathematical calculation, value determination, or simple demonstration.
+- খ (Part B - 4 marks): Intermediate mathematical proof, algebraic/geometric derivation, or problem solving.
+- গ (Part C - 4 marks): Comprehensive application, synthesis, or multi-step mathematical proof.
+- Strict mark distribution: partA.marks = 2, partB.marks = 4, partC.marks = 4 (Total = 10). Omit partD completely.
+- Provide detailed step-by-step LaTeX solutions inside '$' (e.g. $x^2 + \\frac{1}{x^2}$, $\\sin\\theta$).
+`
+        : `
 CREATIVE QUESTION (সৃজনশীল প্রশ্ন / CQ) STRICT SPECIFICATION (10 Marks Total):
 - Each CQ MUST strictly contain an engaging, academically sound Stimulus (উদ্দীপক) representing a real-life scenario, experiment, table, equation, or case study.
 - ক. জ্ঞানমূলক (Knowledge - 1 mark): Direct, precise concept/definition question from the textbook.
@@ -142,7 +155,11 @@ MIXED EXAMINATION QUESTION SET SPECIFICATION:
 - Include a proportional mix of:
   * Multiple Choice Questions (set questionType="MCQ", provide 4 options, correctOptionIndex 0-3, 1 mark each)
   * Short Questions (set questionType="SQ", provide questionText, model answer, 2-3 marks each)
-  * Creative Questions (set questionType="CQ", provide stimulus/উদ্দীপক, cqParts with partA, partB, partC, partD, 10 marks total)
+  * Creative Questions (set questionType="CQ", provide stimulus/উদ্দীপক, ${
+    isMath
+      ? 'cqParts with ONLY 3 parts: partA (2 marks), partB (4 marks), partC (4 marks) — DO NOT include partD, 10 marks total'
+      : 'cqParts with partA (1), partB (2), partC (3), partD (4), 10 marks total'
+  })
 - Ensure every single item has questionType accurately labeled as 'MCQ', 'SQ', or 'CQ'.
 `;
     } else {
@@ -297,7 +314,21 @@ You must respond with valid JSON matching the requested schema. Return an array 
     });
 
     const questionsJson = JSON.parse(response.text || '[]');
-    res.json({ success: true, questions: questionsJson });
+    const normalizedQuestions = Array.isArray(questionsJson)
+      ? questionsJson.map((q: any) => {
+          if (isMath && (q.questionType === 'CQ' || q.cqParts)) {
+            const cq = q.cqParts || {};
+            const cleanedCq = {
+              partA: { ...(cq.partA || { question: 'ক. প্রশ্ন' }), marks: 2 },
+              partB: { ...(cq.partB || { question: 'খ. প্রশ্ন' }), marks: 4 },
+              partC: { ...(cq.partC || { question: 'গ. প্রশ্ন' }), marks: 4 },
+            };
+            return { ...q, marks: 10, cqParts: cleanedCq };
+          }
+          return q;
+        })
+      : questionsJson;
+    res.json({ success: true, questions: normalizedQuestions });
   } catch (error: any) {
     console.error('Error generating questions:', error);
     res.status(500).json({
@@ -437,6 +468,8 @@ app.post('/api/gemini/solve-question', async (req, res) => {
   try {
     const { question, questionType, marks = 10, language = 'Bangla' } = req.body;
 
+    const isMathSolve = /math|গণিত/i.test(question?.subject || '');
+
     const response = await safeGenerateContent({
       contents: `
 Generate an official NCTB Teacher's Model Answer & Marking Scheme (উত্তরমালা ও মূল্যায়ন নির্দেশিকা) for the following question:
@@ -449,7 +482,11 @@ ${JSON.stringify(question, null, 2)}
 
 Provide:
 1. Complete step-by-step model answer.
-2. For CQ: break down answers for ক (1 mark), খ (2 marks), গ (3 marks), ঘ (4 marks) with exact marking criteria (number distribution).
+2. For CQ: ${
+        isMathSolve
+          ? 'break down answers for ONLY 3 parts: ক (2 marks), খ (4 marks), গ (4 marks) — total 10 marks.'
+          : 'break down answers for ক (1 mark), খ (2 marks), গ (3 marks), ঘ (4 marks) with exact marking criteria (number distribution).'
+      }
 3. If math or science: include step-by-step derivation with LaTeX formulas ($...$).
 4. Common student pitfalls or mistakes to look out for during grading.
 `,
@@ -803,9 +840,19 @@ app.post('/api/gemini/generate-from-pdf', async (req, res) => {
         ? 'Write in Bangla with English technical terms in brackets.'
         : 'Write all questions, options, and explanations in standard, fluent academic Bangla (বাংলা).';
 
+    const isMath = /math|গণিত/i.test(subject || '');
+
     let typeGuidance = '';
     if (questionType === 'CQ') {
-      typeGuidance = `
+      typeGuidance = isMath
+        ? `
+MATH CREATIVE QUESTION (গণিত সৃজনশীল প্রশ্ন / CQ) STRICT REQUIREMENT (3 Parts Only — 2, 4, 4 = 10 Marks):
+- Each Math CQ MUST contain a mathematical Stimulus (উদ্দীপক) grounded in the provided PDF text.
+- ONLY 3 sub-questions (ক, খ, গ). DO NOT include partD (ঘ)!
+- ক (2 marks), খ (4 marks), গ (4 marks) — total 10 marks.
+- Detailed model answers for parts ক, খ, গ in the answer fields.
+`
+        : `
 CREATIVE QUESTION (সৃজনশীল প্রশ্ন / CQ) STRICT REQUIREMENT:
 - Each CQ MUST strictly contain an engaging Stimulus (উদ্দীপক) based directly on the provided PDF text.
 - ক. জ্ঞানমূলক (Knowledge - 1 mark): Concept/definition directly in the text.
@@ -951,20 +998,32 @@ Return a valid JSON array of questions matching the schema.
 
     const parsedQuestions = JSON.parse(response.text || '[]');
 
-    // Enrich with source PDF metadata
-    const enriched = parsedQuestions.map((q: any, idx: number) => ({
-      ...q,
-      id: `gen-pdf-${Date.now()}-${idx}`,
-      sourceType: 'ORIGINAL_AI',
-      sourcePdfId: pdfId,
-      sourcePdfTitle: pdfTitle,
-      sourcePage: q.sourcePage || 'Page reference unavailable',
-      isAiGenerated: true,
-      classLevel,
-      subject,
-      chapter: selectedChapter || q.topicTag || 'PDF Source Material',
-      createdAt: new Date().toISOString(),
-    }));
+    // Enrich with source PDF metadata and normalize Math CQ structure (3 parts: 2, 4, 4)
+    const enriched = parsedQuestions.map((q: any, idx: number) => {
+      const normalizedCqParts =
+        isMath && (q.questionType === 'CQ' || q.cqParts) && q.cqParts
+          ? {
+              partA: { ...(q.cqParts.partA || { question: 'ক. প্রশ্ন' }), marks: 2 },
+              partB: { ...(q.cqParts.partB || { question: 'খ. প্রশ্ন' }), marks: 4 },
+              partC: { ...(q.cqParts.partC || { question: 'গ. প্রশ্ন' }), marks: 4 },
+            }
+          : q.cqParts;
+      return {
+        ...q,
+        cqParts: normalizedCqParts,
+        marks: isMath && (q.questionType === 'CQ' || q.cqParts) ? 10 : q.marks,
+        id: `gen-pdf-${Date.now()}-${idx}`,
+        sourceType: 'ORIGINAL_AI',
+        sourcePdfId: pdfId,
+        sourcePdfTitle: pdfTitle,
+        sourcePage: q.sourcePage || 'Page reference unavailable',
+        isAiGenerated: true,
+        classLevel,
+        subject,
+        chapter: selectedChapter || q.topicTag || 'PDF Source Material',
+        createdAt: new Date().toISOString(),
+      };
+    });
 
     res.json({ success: true, questions: enriched });
   } catch (error: any) {
@@ -996,6 +1055,8 @@ app.post('/api/gemini/extract-exam-questions', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Exam paper text is required.' });
     }
 
+    const isMathExam = /math|গণিত/i.test(`${subject} ${examName}`);
+
     const prompt = `
 You are the Master Educational Assessment Digitizer for Bangladesh (Classes 8, 9, 10).
 Analyze and digitize the following uploaded examination paper:
@@ -1015,9 +1076,13 @@ ${rawText.slice(0, 16000)}
 
 CRITICAL DIGITIZATION INSTRUCTIONS:
 1. CREATIVE QUESTIONS (CQ):
-   - You MUST NEVER separate the stimulus (উদ্দীপক) from parts ক, খ, গ, ঘ!
+   - You MUST NEVER separate the stimulus (উদ্দীপক) from its sub-questions!
    - Store the complete scenario, paragraph, poem, data table, or experiment in 'stimulus'.
-   - Store partA (ক - জ্ঞানমূলক, 1 mark), partB (খ - অনুধাবনমূলক, 2 marks), partC (গ - প্রয়োগমূলক, 3 marks), partD (ঘ - উচ্চতর দক্ষতা, 4 marks) inside 'cqParts'.
+   - ${
+     isMathExam
+       ? "For MATHEMATICS / HIGHER MATH CQs, extract ONLY 3 sub-questions: partA (ক, 2 marks), partB (খ, 4 marks), partC (গ, 4 marks). DO NOT include partD!"
+       : "Store partA (ক - জ্ঞানমূলক, 1 mark), partB (খ - অনুধাবনমূলক, 2 marks), partC (গ - প্রয়োগমূলক, 3 marks), partD (ঘ - উচ্চতর দক্ষতা, 4 marks) inside 'cqParts'. (Note: if the exam is Mathematics, use ONLY 3 parts: 2, 4, 4 and omit partD)."
+   }
    - Total marks for each CQ must be 10.
 2. MULTIPLE CHOICE QUESTIONS (MCQ):
    - Identify questionText.
@@ -1101,6 +1166,24 @@ Respond with strict valid JSON matching the schema.
     });
 
     const parsed = JSON.parse(response.text || '{"questions":[]}');
+    const isDetectedMath = isMathExam || /math|গণিত/i.test(parsed.detectedSubject || '');
+    if (isDetectedMath && Array.isArray(parsed.questions)) {
+      parsed.questions = parsed.questions.map((q: any) => {
+        if (q.questionType === 'CQ' || q.cqParts) {
+          const cq = q.cqParts || {};
+          return {
+            ...q,
+            marks: 10,
+            cqParts: {
+              partA: { ...(cq.partA || { question: 'ক. প্রশ্ন' }), marks: 2 },
+              partB: { ...(cq.partB || { question: 'খ. প্রশ্ন' }), marks: 4 },
+              partC: { ...(cq.partC || { question: 'গ. প্রশ্ন' }), marks: 4 },
+            },
+          };
+        }
+        return q;
+      });
+    }
     res.json({ success: true, ...parsed });
   } catch (error: any) {
     console.error('Error extracting exam questions:', error);

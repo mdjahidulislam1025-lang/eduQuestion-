@@ -11,6 +11,7 @@ import {
 } from '../types';
 import { BANGLADESH_BOARDS, BOARD_EXAM_YEARS, NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   FileUp,
   Upload,
@@ -388,7 +389,9 @@ export const ExamPaperImportModal: React.FC<ExamPaperImportModalProps> = ({
                     onChange={(e) => setRawTextPasted(e.target.value)}
                     placeholder={
                       isBangla
-                        ? '১. উদ্দীপকটি পড়ো এবং নিচের প্রশ্নগুলোর উত্তর দাও...\nক. জ্ঞানমূলক প্রশ্ন\nখ. অনুধাবনমূলক প্রশ্ন\nগ. প্রয়োগমূলক প্রশ্ন\nঘ. উচ্চতর দক্ষতামূলক প্রশ্ন'
+                        ? isMathSubject(subject)
+                          ? '১. উদ্দীপকটি পড়ো এবং নিচের প্রশ্নগুলোর উত্তর দাও...\nক. প্রশ্ন (২)\nখ. প্রশ্ন (৪)\nগ. প্রশ্ন (৪)'
+                          : '১. উদ্দীপকটি পড়ো এবং নিচের প্রশ্নগুলোর উত্তর দাও...\nক. জ্ঞানমূলক প্রশ্ন\nখ. অনুধাবনমূলক প্রশ্ন\nগ. প্রয়োগমূলক প্রশ্ন\nঘ. উচ্চতর দক্ষতামূলক প্রশ্ন'
                         : 'Paste raw exam questions here...'
                     }
                     className="w-full p-3 rounded-2xl border border-slate-200 text-xs sm:text-sm font-serif"
@@ -649,26 +652,31 @@ export const ExamPaperImportModal: React.FC<ExamPaperImportModalProps> = ({
                       </div>
 
                       {/* CQ Parts */}
-                      {q.cqParts && (
-                        <div className="space-y-1.5 pt-1 text-xs">
-                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-700">ক. ({q.cqParts.partA.marks} মান): </span>
-                            <MathRenderer text={q.cqParts.partA.question} />
+                      {q.cqParts && (() => {
+                        const isMath = isMathSubject(q.subject);
+                        return (
+                          <div className="space-y-1.5 pt-1 text-xs">
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                              <span className="font-bold text-slate-700">ক. ({isMath ? 2 : q.cqParts.partA.marks} মান): </span>
+                              <MathRenderer text={q.cqParts.partA.question} />
+                            </div>
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                              <span className="font-bold text-slate-700">খ. ({isMath ? 4 : q.cqParts.partB.marks} মান): </span>
+                              <MathRenderer text={q.cqParts.partB.question} />
+                            </div>
+                            <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                              <span className="font-bold text-slate-700">গ. ({isMath ? 4 : q.cqParts.partC.marks} মান): </span>
+                              <MathRenderer text={q.cqParts.partC.question} />
+                            </div>
+                            {!isMath && q.cqParts.partD && (
+                              <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
+                                <span className="font-bold text-slate-700">ঘ. ({q.cqParts.partD.marks} মান): </span>
+                                <MathRenderer text={q.cqParts.partD.question} />
+                              </div>
+                            )}
                           </div>
-                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-700">খ. ({q.cqParts.partB.marks} মান): </span>
-                            <MathRenderer text={q.cqParts.partB.question} />
-                          </div>
-                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-700">গ. ({q.cqParts.partC.marks} মান): </span>
-                            <MathRenderer text={q.cqParts.partC.question} />
-                          </div>
-                          <div className="p-2 rounded-lg bg-slate-50 border border-slate-200">
-                            <span className="font-bold text-slate-700">ঘ. ({q.cqParts.partD.marks} মান): </span>
-                            <MathRenderer text={q.cqParts.partD.question} />
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Duplicate Actions */}
                       {isDup && q.duplicateMatchQuestionId && (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Question } from '../types';
 import { MathRenderer } from './MathRenderer';
 import { DiagramEditor } from './DiagramEditor';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   Bookmark,
   CheckCircle,
@@ -81,12 +82,19 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       updated.correctOptionIndex = editedCorrectIndex;
       updated.correctAnswer = editedOptions[editedCorrectIndex] || '';
     } else if (question.questionType === 'CQ') {
-      updated.cqParts = {
-        partA: { question: partA, marks: 1, answer: ansA },
-        partB: { question: partB, marks: 2, answer: ansB },
-        partC: { question: partC, marks: 3, answer: ansC },
-        partD: { question: partD, marks: 4, answer: ansD },
-      };
+      const isMath = isMathSubject(question.subject);
+      updated.cqParts = isMath
+        ? {
+            partA: { question: partA, marks: 2, answer: ansA },
+            partB: { question: partB, marks: 4, answer: ansB },
+            partC: { question: partC, marks: 4, answer: ansC },
+          }
+        : {
+            partA: { question: partA, marks: 1, answer: ansA },
+            partB: { question: partB, marks: 2, answer: ansB },
+            partC: { question: partC, marks: 3, answer: ansC },
+            partD: { question: partD, marks: 4, answer: ansD },
+          };
     }
 
     onUpdate(updated);
@@ -109,6 +117,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
       const data = await res.json();
       if (data.success && data.solution) {
         if (question.questionType === 'CQ' && question.cqParts) {
+          const isMath = isMathSubject(question.subject);
           // Update CQ answers
           const updated: Question = {
             ...question,
@@ -116,8 +125,10 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             cqParts: {
               partA: { ...question.cqParts.partA, answer: question.cqParts.partA.answer || data.solution.keyPoints?.[0] },
               partB: { ...question.cqParts.partB, answer: question.cqParts.partB.answer || data.solution.keyPoints?.[1] },
-              partC: { ...question.cqParts.partC, answer: question.cqParts.partC.answer || data.solution.keyPoints?.[2] },
-              partD: { ...question.cqParts.partD, answer: question.cqParts.partD.answer || data.solution.modelAnswer },
+              partC: { ...question.cqParts.partC, answer: question.cqParts.partC.answer || data.solution.keyPoints?.[2] || (isMath ? data.solution.modelAnswer : undefined) },
+              ...(!isMath && question.cqParts.partD
+                ? { partD: { ...question.cqParts.partD, answer: question.cqParts.partD.answer || data.solution.modelAnswer } }
+                : {}),
             },
           };
           onUpdate?.(updated);
@@ -349,46 +360,57 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
           </div>
 
           {/* CQ Parts Editing */}
-          {question.questionType === 'CQ' && (
-            <div className="space-y-2 border-l-2 border-indigo-200 pl-3">
-              <div>
-                <label className="text-xs font-semibold text-slate-600">ক. জ্ঞানমূলক (১ নম্বর):</label>
-                <input
-                  type="text"
-                  value={partA}
-                  onChange={(e) => setPartA(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
-                />
+          {question.questionType === 'CQ' && (() => {
+            const isMath = isMathSubject(question.subject);
+            return (
+              <div className="space-y-2 border-l-2 border-indigo-200 pl-3">
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">
+                    {isMath ? 'ক (২ নম্বর):' : 'ক. জ্ঞানমূলক (১ নম্বর):'}
+                  </label>
+                  <input
+                    type="text"
+                    value={partA}
+                    onChange={(e) => setPartA(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">
+                    {isMath ? 'খ (৪ নম্বর):' : 'খ. অনুধাবনমূলক (২ নম্বর):'}
+                  </label>
+                  <input
+                    type="text"
+                    value={partB}
+                    onChange={(e) => setPartB(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-600">
+                    {isMath ? 'গ (৪ নম্বর):' : 'গ. প্রয়োগমূলক (৩ নম্বর):'}
+                  </label>
+                  <input
+                    type="text"
+                    value={partC}
+                    onChange={(e) => setPartC(e.target.value)}
+                    className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
+                  />
+                </div>
+                {!isMath && (
+                  <div>
+                    <label className="text-xs font-semibold text-slate-600">ঘ. উচ্চতর দক্ষতামূলক (৪ নম্বর):</label>
+                    <input
+                      type="text"
+                      value={partD}
+                      onChange={(e) => setPartD(e.target.value)}
+                      className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
+                    />
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600">খ. অনুধাবনমূলক (২ নম্বর):</label>
-                <input
-                  type="text"
-                  value={partB}
-                  onChange={(e) => setPartB(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600">গ. প্রয়োগমূলক (৩ নম্বর):</label>
-                <input
-                  type="text"
-                  value={partC}
-                  onChange={(e) => setPartC(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-slate-600">ঘ. উচ্চতর দক্ষতামূলক (৪ নম্বর):</label>
-                <input
-                  type="text"
-                  value={partD}
-                  onChange={(e) => setPartD(e.target.value)}
-                  className="w-full text-sm border border-slate-300 rounded-lg p-2 font-bangla"
-                />
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* MCQ Options Editing */}
           {question.questionType === 'MCQ' && (
@@ -488,47 +510,52 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
             </div>
           )}
 
-          {/* CQ 4 Parts Rendering (ক, খ, গ, ঘ) */}
-          {question.questionType === 'CQ' && question.cqParts && (
-            <div className="space-y-2.5 pt-1">
-              <div className="flex items-start justify-between text-sm group/part">
-                <span className="font-medium text-slate-900">
-                  <span className="font-bold mr-1">ক.</span>
-                  <MathRenderer content={question.cqParts.partA.question} />
-                </span>
-                <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
-                  {question.cqParts.partA.marks}
-                </span>
+          {/* CQ Parts Rendering (ক, খ, গ অথবা ক, খ, গ, ঘ) */}
+          {question.questionType === 'CQ' && question.cqParts && (() => {
+            const isMath = isMathSubject(question.subject);
+            return (
+              <div className="space-y-2.5 pt-1">
+                <div className="flex items-start justify-between text-sm group/part">
+                  <span className="font-medium text-slate-900">
+                    <span className="font-bold mr-1">ক.</span>
+                    <MathRenderer content={question.cqParts.partA.question} />
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
+                    {isMath ? 2 : question.cqParts.partA.marks}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between text-sm group/part">
+                  <span className="font-medium text-slate-900">
+                    <span className="font-bold mr-1">খ.</span>
+                    <MathRenderer content={question.cqParts.partB.question} />
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
+                    {isMath ? 4 : question.cqParts.partB.marks}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between text-sm group/part">
+                  <span className="font-medium text-slate-900">
+                    <span className="font-bold mr-1">গ.</span>
+                    <MathRenderer content={question.cqParts.partC.question} />
+                  </span>
+                  <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
+                    {isMath ? 4 : question.cqParts.partC.marks}
+                  </span>
+                </div>
+                {!isMath && question.cqParts.partD && (
+                  <div className="flex items-start justify-between text-sm group/part">
+                    <span className="font-medium text-slate-900">
+                      <span className="font-bold mr-1">ঘ.</span>
+                      <MathRenderer content={question.cqParts.partD.question} />
+                    </span>
+                    <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
+                      {question.cqParts.partD.marks}
+                    </span>
+                  </div>
+                )}
               </div>
-              <div className="flex items-start justify-between text-sm group/part">
-                <span className="font-medium text-slate-900">
-                  <span className="font-bold mr-1">খ.</span>
-                  <MathRenderer content={question.cqParts.partB.question} />
-                </span>
-                <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
-                  {question.cqParts.partB.marks}
-                </span>
-              </div>
-              <div className="flex items-start justify-between text-sm group/part">
-                <span className="font-medium text-slate-900">
-                  <span className="font-bold mr-1">গ.</span>
-                  <MathRenderer content={question.cqParts.partC.question} />
-                </span>
-                <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
-                  {question.cqParts.partC.marks}
-                </span>
-              </div>
-              <div className="flex items-start justify-between text-sm group/part">
-                <span className="font-medium text-slate-900">
-                  <span className="font-bold mr-1">ঘ.</span>
-                  <MathRenderer content={question.cqParts.partD.question} />
-                </span>
-                <span className="text-xs font-bold text-slate-500 ml-4 whitespace-nowrap">
-                  {question.cqParts.partD.marks}
-                </span>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* MCQ Options Rendering */}
           {question.questionType === 'MCQ' && question.options && (
@@ -602,7 +629,7 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
                       <strong>গ-এর উত্তর:</strong> <MathRenderer content={question.cqParts.partC.answer} />
                     </p>
                   )}
-                  {question.cqParts.partD.answer && (
+                  {!isMathSubject(question.subject) && question.cqParts.partD?.answer && (
                     <p>
                       <strong>ঘ-এর উত্তর:</strong> <MathRenderer content={question.cqParts.partD.answer} />
                     </p>

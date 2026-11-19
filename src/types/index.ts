@@ -23,10 +23,10 @@ export interface CQPart {
 }
 
 export interface CQStructure {
-  partA: CQPart; // ক. জ্ঞানমূলক (1)
-  partB: CQPart; // খ. অনুধাবনমূলক (2)
-  partC: CQPart; // গ. প্রয়োগমূলক (3)
-  partD: CQPart; // ঘ. উচ্চতর দক্ষতামূলক (4)
+  partA: CQPart; // ক. জ্ঞানমূলক (1) বা গণিত (2)
+  partB: CQPart; // খ. অনুধাবনমূলক (2) বা গণিত (4)
+  partC: CQPart; // গ. প্রয়োগমূলক (3) বা গণিত (4)
+  partD?: CQPart; // ঘ. উচ্চতর দক্ষতামূলক (4) — গণিত ব্যতীত অন্যান্য বিষয়ের জন্য
 }
 
 export interface Question {
@@ -270,7 +270,7 @@ export interface SubmittedQuestion {
     partA: { question: string; marks: number; answer?: string };
     partB: { question: string; marks: number; answer?: string };
     partC: { question: string; marks: number; answer?: string };
-    partD: { question: string; marks: number; answer?: string };
+    partD?: { question: string; marks: number; answer?: string };
   };
   diagramUrl?: string;
   diagramCaption?: string;

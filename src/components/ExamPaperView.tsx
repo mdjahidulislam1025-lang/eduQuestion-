@@ -3,6 +3,7 @@ import { QuestionPaper, Question } from '../types';
 import { MathRenderer } from './MathRenderer';
 import { Printer, Download, FileText, CheckCircle, Eye, Settings, Image as ImageIcon } from 'lucide-react';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
+import { isMathSubject } from '../utils/questionMediaHelper';
 
 interface ExamPaperViewProps {
   paper: QuestionPaper;
@@ -385,51 +386,56 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
                             </div>
                           )}
 
-                          {/* CQ Parts (ক, খ, গ, ঘ) */}
-                          {q.questionType === 'CQ' && q.cqParts ? (
-                            <div className="space-y-1.5">
-                              <div className="flex items-start justify-between font-bold text-xs pb-1">
-                                <span>{qIdx + 1} নম্বর প্রশ্ন:</span>
-                                <span className="text-slate-600">১০</span>
+                          {/* CQ Parts (ক, খ, গ অথবা ক, খ, গ, ঘ) */}
+                          {q.questionType === 'CQ' && q.cqParts ? (() => {
+                            const isMath = isMathSubject(q.subject || paper.subject);
+                            return (
+                              <div className="space-y-1.5">
+                                <div className="flex items-start justify-between font-bold text-xs pb-1">
+                                  <span>{qIdx + 1} নম্বর প্রশ্ন:</span>
+                                  <span className="text-slate-600">১০</span>
+                                </div>
+                                <div className="flex items-start justify-between text-xs">
+                                  <span>
+                                    <strong>ক.</strong>{' '}
+                                    <MathRenderer content={q.cqParts.partA.question} />
+                                  </span>
+                                  <span className="ml-2 font-bold shrink-0">
+                                    {isMath ? 2 : q.cqParts.partA.marks}
+                                  </span>
+                                </div>
+                                <div className="flex items-start justify-between text-xs">
+                                  <span>
+                                    <strong>খ.</strong>{' '}
+                                    <MathRenderer content={q.cqParts.partB.question} />
+                                  </span>
+                                  <span className="ml-2 font-bold shrink-0">
+                                    {isMath ? 4 : q.cqParts.partB.marks}
+                                  </span>
+                                </div>
+                                <div className="flex items-start justify-between text-xs">
+                                  <span>
+                                    <strong>গ.</strong>{' '}
+                                    <MathRenderer content={q.cqParts.partC.question} />
+                                  </span>
+                                  <span className="ml-2 font-bold shrink-0">
+                                    {isMath ? 4 : q.cqParts.partC.marks}
+                                  </span>
+                                </div>
+                                {!isMath && q.cqParts.partD && (
+                                  <div className="flex items-start justify-between text-xs">
+                                    <span>
+                                      <strong>ঘ.</strong>{' '}
+                                      <MathRenderer content={q.cqParts.partD.question} />
+                                    </span>
+                                    <span className="ml-2 font-bold shrink-0">
+                                      {q.cqParts.partD.marks}
+                                    </span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex items-start justify-between text-xs">
-                                <span>
-                                  <strong>ক.</strong>{' '}
-                                  <MathRenderer content={q.cqParts.partA.question} />
-                                </span>
-                                <span className="ml-2 font-bold shrink-0">
-                                  {q.cqParts.partA.marks}
-                                </span>
-                              </div>
-                              <div className="flex items-start justify-between text-xs">
-                                <span>
-                                  <strong>খ.</strong>{' '}
-                                  <MathRenderer content={q.cqParts.partB.question} />
-                                </span>
-                                <span className="ml-2 font-bold shrink-0">
-                                  {q.cqParts.partB.marks}
-                                </span>
-                              </div>
-                              <div className="flex items-start justify-between text-xs">
-                                <span>
-                                  <strong>গ.</strong>{' '}
-                                  <MathRenderer content={q.cqParts.partC.question} />
-                                </span>
-                                <span className="ml-2 font-bold shrink-0">
-                                  {q.cqParts.partC.marks}
-                                </span>
-                              </div>
-                              <div className="flex items-start justify-between text-xs">
-                                <span>
-                                  <strong>ঘ.</strong>{' '}
-                                  <MathRenderer content={q.cqParts.partD.question} />
-                                </span>
-                                <span className="ml-2 font-bold shrink-0">
-                                  {q.cqParts.partD.marks}
-                                </span>
-                              </div>
-                            </div>
-                          ) : q.questionType === 'MCQ' && q.options ? (
+                            );
+                          })() : q.questionType === 'MCQ' && q.options ? (
                             /* MCQ Rendering */
                             <div className="text-xs space-y-1">
                               <div className="flex items-start justify-between font-medium">
@@ -469,51 +475,56 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
                             <span>[পূর্ণমান: {q.marks}]</span>
                           </div>
 
-                          {q.questionType === 'CQ' && q.cqParts ? (
-                            <div className="space-y-1.5">
-                              <div>
-                                <span className="font-bold text-blue-900">
-                                  ক ({q.cqParts.partA.marks} নম্বর):{' '}
-                                </span>
-                                <MathRenderer
-                                  content={q.cqParts.partA.answer || 'সরাসরি প্রমিত সংজ্ঞা বা তথ্য।'}
-                                />
+                          {q.questionType === 'CQ' && q.cqParts ? (() => {
+                            const isMath = isMathSubject(q.subject || paper.subject);
+                            return (
+                              <div className="space-y-1.5">
+                                <div>
+                                  <span className="font-bold text-blue-900">
+                                    ক ({isMath ? 2 : q.cqParts.partA.marks} নম্বর):{' '}
+                                  </span>
+                                  <MathRenderer
+                                    content={q.cqParts.partA.answer || (isMath ? 'প্রয়োজনীয় গাণিতিক সমাধান।' : 'সরাসরি প্রমিত সংজ্ঞা বা তথ্য।')}
+                                  />
+                                </div>
+                                <div>
+                                  <span className="font-bold text-blue-900">
+                                    খ ({isMath ? 4 : q.cqParts.partB.marks} নম্বর):{' '}
+                                  </span>
+                                  <MathRenderer
+                                    content={
+                                      q.cqParts.partB.answer ||
+                                      (isMath ? 'ধাপে ধাপে গাণিতিক প্রমাণ বা নির্ণয়।' : 'জ্ঞানমূলক অংশ ১ নম্বর + অনুধাবনমূলক বিশদ ব্যাখ্যা ১ নম্বর।')
+                                    }
+                                  />
+                                </div>
+                                <div>
+                                  <span className="font-bold text-blue-900">
+                                    গ ({isMath ? 4 : q.cqParts.partC.marks} নম্বর):{' '}
+                                  </span>
+                                  <MathRenderer
+                                    content={
+                                      q.cqParts.partC.answer ||
+                                      'উদ্দীপকের সাথে সংশ্লিষ্ট সূত্রের প্রয়োগ ও সঠিক গাণিতিক সমাধান।'
+                                    }
+                                  />
+                                </div>
+                                {!isMath && q.cqParts.partD && (
+                                  <div>
+                                    <span className="font-bold text-blue-900">
+                                      ঘ ({q.cqParts.partD.marks} নম্বর):{' '}
+                                    </span>
+                                    <MathRenderer
+                                      content={
+                                        q.cqParts.partD.answer ||
+                                        'উচ্চতর দক্ষতা: যৌক্তিক মূল্যায়ন, তুলনামূলক বিশ্লেষণ এবং সিদ্ধান্ত।'
+                                      }
+                                    />
+                                  </div>
+                                )}
                               </div>
-                              <div>
-                                <span className="font-bold text-blue-900">
-                                  খ ({q.cqParts.partB.marks} নম্বর):{' '}
-                                </span>
-                                <MathRenderer
-                                  content={
-                                    q.cqParts.partB.answer ||
-                                    'জ্ঞানমূলক অংশ ১ নম্বর + অনুধাবনমূলক বিশদ ব্যাখ্যা ১ নম্বর।'
-                                  }
-                                />
-                              </div>
-                              <div>
-                                <span className="font-bold text-blue-900">
-                                  গ ({q.cqParts.partC.marks} নম্বর):{' '}
-                                </span>
-                                <MathRenderer
-                                  content={
-                                    q.cqParts.partC.answer ||
-                                    'উদ্দীপকের সাথে সংশ্লিষ্ট সূত্রের প্রয়োগ ও সঠিক গাণিতিক সমাধান।'
-                                  }
-                                />
-                              </div>
-                              <div>
-                                <span className="font-bold text-blue-900">
-                                  ঘ ({q.cqParts.partD.marks} নম্বর):{' '}
-                                </span>
-                                <MathRenderer
-                                  content={
-                                    q.cqParts.partD.answer ||
-                                    'উচ্চতর দক্ষতা: যৌক্তিক মূল্যায়ন, তুলনামূলক বিশ্লেষণ এবং সিদ্ধান্ত।'
-                                  }
-                                />
-                              </div>
-                            </div>
-                          ) : q.questionType === 'MCQ' ? (
+                            );
+                          })() : q.questionType === 'MCQ' ? (
                             <div>
                               <p className="font-bold text-emerald-800">
                                 সঠিক উত্তর:{' '}

@@ -57,19 +57,18 @@ export const DEFAULT_EXAM_PRESETS: ExamPresetItem[] = [
 ];
 
 export async function loadDynamicClasses(): Promise<DynamicClassItem[]> {
+  if (!auth.currentUser) return DEFAULT_CLASSES;
   try {
     const cached = localStorage.getItem('edu_classes');
     let list: DynamicClassItem[] = cached ? JSON.parse(cached) : DEFAULT_CLASSES;
-    if (auth.currentUser) {
-      const snap = await getDocs(collection(db, 'classes'));
-      if (!snap.empty) {
-        const remote = snap.docs.map((d) => d.data() as DynamicClassItem);
-        const map = new Map<string, DynamicClassItem>();
-        list.forEach((c) => map.set(c.id, c));
-        remote.forEach((c) => map.set(c.id, c));
-        list = Array.from(map.values());
-        localStorage.setItem('edu_classes', JSON.stringify(list));
-      }
+    const snap = await getDocs(collection(db, 'classes'));
+    if (!snap.empty) {
+      const remote = snap.docs.map((d) => d.data() as DynamicClassItem);
+      const map = new Map<string, DynamicClassItem>();
+      list.forEach((c) => map.set(c.id, c));
+      remote.forEach((c) => map.set(c.id, c));
+      list = Array.from(map.values());
+      localStorage.setItem('edu_classes', JSON.stringify(list));
     }
     return list;
   } catch {
@@ -101,19 +100,18 @@ export async function deleteDynamicClass(id: string): Promise<void> {
 }
 
 export async function loadDynamicSubjects(): Promise<DynamicSubjectItem[]> {
+  if (!auth.currentUser) return DEFAULT_SUBJECTS;
   try {
     const cached = localStorage.getItem('edu_subjects');
     let list: DynamicSubjectItem[] = cached ? JSON.parse(cached) : DEFAULT_SUBJECTS;
-    if (auth.currentUser) {
-      const snap = await getDocs(collection(db, 'subjects'));
-      if (!snap.empty) {
-        const remote = snap.docs.map((d) => d.data() as DynamicSubjectItem);
-        const map = new Map<string, DynamicSubjectItem>();
-        list.forEach((s) => map.set(s.id, s));
-        remote.forEach((s) => map.set(s.id, s));
-        list = Array.from(map.values());
-        localStorage.setItem('edu_subjects', JSON.stringify(list));
-      }
+    const snap = await getDocs(collection(db, 'subjects'));
+    if (!snap.empty) {
+      const remote = snap.docs.map((d) => d.data() as DynamicSubjectItem);
+      const map = new Map<string, DynamicSubjectItem>();
+      list.forEach((s) => map.set(s.id, s));
+      remote.forEach((s) => map.set(s.id, s));
+      list = Array.from(map.values());
+      localStorage.setItem('edu_subjects', JSON.stringify(list));
     }
     return list;
   } catch {
@@ -145,19 +143,18 @@ export async function deleteDynamicSubject(id: string): Promise<void> {
 }
 
 export async function loadExamPresets(): Promise<ExamPresetItem[]> {
+  if (!auth.currentUser) return DEFAULT_EXAM_PRESETS;
   try {
     const cached = localStorage.getItem('edu_exam_presets');
     let list: ExamPresetItem[] = cached ? JSON.parse(cached) : DEFAULT_EXAM_PRESETS;
-    if (auth.currentUser) {
-      const snap = await getDocs(collection(db, 'examPresets'));
-      if (!snap.empty) {
-        const remote = snap.docs.map((d) => d.data() as ExamPresetItem);
-        const map = new Map<string, ExamPresetItem>();
-        list.forEach((p) => map.set(p.id, p));
-        remote.forEach((p) => map.set(p.id, p));
-        list = Array.from(map.values());
-        localStorage.setItem('edu_exam_presets', JSON.stringify(list));
-      }
+    const snap = await getDocs(collection(db, 'examPresets'));
+    if (!snap.empty) {
+      const remote = snap.docs.map((d) => d.data() as ExamPresetItem);
+      const map = new Map<string, ExamPresetItem>();
+      list.forEach((p) => map.set(p.id, p));
+      remote.forEach((p) => map.set(p.id, p));
+      list = Array.from(map.values());
+      localStorage.setItem('edu_exam_presets', JSON.stringify(list));
     }
     return list;
   } catch {
@@ -188,19 +185,18 @@ export async function deleteExamPreset(id: string): Promise<void> {
   }
 }
 
-export async function loadUserConfigurations(userId: string): Promise<UserExamConfiguration[]> {
+export async function loadUserConfigurations(_userId: string): Promise<UserExamConfiguration[]> {
+  if (!auth.currentUser) {
+    return [];
+  }
   try {
     const cached = localStorage.getItem('edu_user_configs');
     let list: UserExamConfiguration[] = cached ? JSON.parse(cached) : [];
-    if (auth.currentUser) {
-      const q = auth.currentUser.email
-        ? query(collection(db, 'userConfigurations'), where('userEmail', '==', auth.currentUser.email))
-        : query(collection(db, 'userConfigurations'), where('userId', '==', auth.currentUser.uid));
-      const snap = await getDocs(q);
-      if (!snap.empty) {
-        list = snap.docs.map((d) => d.data() as UserExamConfiguration);
-        localStorage.setItem('edu_user_configs', JSON.stringify(list));
-      }
+    const q = query(collection(db, 'userConfigurations'), where('userId', '==', auth.currentUser.uid));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      list = snap.docs.map((d) => d.data() as UserExamConfiguration);
+      localStorage.setItem('edu_user_configs', JSON.stringify(list));
     }
     return list;
   } catch {

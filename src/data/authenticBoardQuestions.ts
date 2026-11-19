@@ -132,11 +132,6 @@ export const AUTHENTIC_BOARD_QUESTIONS: BoardExamQuestionRecord[] = [
         marks: 4,
         answer: '$p = 7 + 4\\sqrt{3} = 4 + 2(2)(\\sqrt{3}) + 3 = (2 + \\sqrt{3})^2$\\n$\\therefore \\sqrt{p} = 2 + \\sqrt{3}$।\\n$\\frac{1}{\\sqrt{p}} = \\frac{1}{2 + \\sqrt{3}} = 2 - \\sqrt{3}$।\\n$\\therefore \\sqrt{p} + \\frac{1}{\\sqrt{p}} = (2 + \\sqrt{3}) + (2 - \\sqrt{3}) = 4$।',
       },
-      partD: {
-        question: 'ঘ. উদ্দীপকের সমীকরণগুলোর অমূলদ রাশির ব্যবহারিক রূপ ব্যাখ্যা করো।',
-        marks: 2,
-        answer: 'পূর্ণবর্গ রূপান্তর ও অনবন্ধী করণী (conjugate surds) ব্যবহার করে অমূলদ হরকে মূলদে রূপান্তর করে নির্ভুল গাণিতিক মান পাওয়া যায়।',
-      },
     },
     marks: 10,
     difficulty: 'Medium',

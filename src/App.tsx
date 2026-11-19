@@ -51,7 +51,15 @@ import {
   onAuthStateChanged,
   User as FirebaseUser
 } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  setDoc,
+  getDocs,
+  deleteDoc,
+  query,
+  where,
+} from 'firebase/firestore';
 import {
   organizeQuestionsIntoSections,
   addQuestionsToPaperSections,
@@ -78,6 +86,8 @@ import {
   saveQuestionToCloud,
   deleteQuestionFromCloud,
   mergeWithDefaultQuestions,
+  getGuestPreviewQuestions,
+  TOTAL_BASELINE_QUESTIONS_COUNT,
 } from './services/questionBankService';
 import {
   recordUserLogin,
@@ -110,7 +120,8 @@ import {
   CheckCircle2,
   ExternalLink,
   Upload,
-  GraduationCap
+  GraduationCap,
+  Lock
 } from 'lucide-react';
 import {
   recordPageView,
@@ -241,21 +252,8 @@ export default function App() {
     },
   ]);
 
-  // Data Stores
-  const [questions, setQuestions] = useState<Question[]>(() => {
-    try {
-      const saved = localStorage.getItem('edu_questions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return mergeWithDefaultQuestions(parsed);
-        }
-      }
-    } catch (e) {
-      console.warn('Failed to parse local questions', e);
-    }
-    return mergeWithDefaultQuestions([]);
-  });
+  // Data Stores — Guests receive ONLY curated preview questions until authenticated
+  const [questions, setQuestions] = useState<Question[]>(() => getGuestPreviewQuestions());
   const GUEST_PROFILE: UserProfile = {
     uid: 'guest',
     email: '',
@@ -305,129 +303,63 @@ export default function App() {
     setActivityLogs((prev) => [newLog, ...prev]);
   };
 
-  // Initial load
+  const buildInitialSamplePaper = (ownerId: string): QuestionPaper => ({
+    id: `paper-ssc-pretest-${ownerId.slice(0, 6)}`,
+    ownerId,
+    title: 'প্রাক-নির্বাচনী পরীক্ষা ২০২৬ (Pre-Test Examination)',
+    institutionName: currentWorkspace.institutionName || 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ',
+    institutionAddress: currentWorkspace.institutionAddress || 'মতিঝিল, ঢাকা-১০০০',
+    classLevel: 'Class 10',
+    subject: 'পদার্থবিজ্ঞান (Physics)',
+    subjectCode: '136',
+    totalMarks: 70,
+    duration: '২ ঘণ্টা ৩০ মিনিট',
+    examDate: '১৫/১১/২০২৬',
+    instructions: [
+      '১. ডান পাশের সংখ্যা প্রশ্নের পূর্ণমান নির্দেশক।',
+      '২. ক-বিভাগ থেকে অন্তত ২টি এবং খ-বিভাগ থেকে অন্তত ২টি করে মোট ৭টি সৃজনশীল প্রশ্নের উত্তর দাও।',
+    ],
+    watermarkText: currentWorkspace.watermarkText || 'IDEAL SCHOOL',
+    watermarkOpacity: currentWorkspace.watermarkOpacity ?? 0.08,
+    sections: [
+      {
+        id: 'sec-1',
+        titleBn: 'ক-বিভাগ: সৃজনশীল প্রশ্ন (বল, গতি ও শক্তি)',
+        titleEn: 'Section A: Creative Questions',
+        instructions: 'যেকোনো ৪টি প্রশ্নের উত্তর দাও। প্রতিটির মান ১০।',
+        questions: [
+          {
+            id: 'paper-q1',
+            classLevel: 'Class 10',
+            subject: 'Physics',
+            chapter: 'কাজ, ক্ষমতা ও শক্তি',
+            questionType: 'CQ',
+            questionText: 'পদার্থবিজ্ঞান সৃজনশীল উদ্দীপক',
+            stimulus: '৫০ কেজি ভরের একজন দৌড়বিদ স্থির অবস্থা থেকে ২ ms⁻² সুষম ত্বরণে ১০ সেকেন্ড দৌড়ালেন। এরপর তিনি একটি ৬০ মিটার উঁচু পাহাড়ে ৫ মিনিটে উঠলেন। [g = 9.8 ms⁻²]',
+            cqParts: {
+              partA: { question: 'ক. কর্মদক্ষতা কাকে বলে?', marks: 1, answer: 'লভ্য কার্যকর শক্তি ও মোট প্রদত্ত শক্তির অনুপাত।' },
+              partB: { question: 'খ. চলন্ত বাস হঠাৎ ব্রেক কষলে যাত্রীরা সামনের দিকে ঝুঁকে পড়েন কেন?', marks: 2, answer: 'গতি জড়তার কারণে।' },
+              partC: { question: 'গ. দৌড় শুরুর ১০ সেকেন্ড পর দৌড়বিদের গতিশক্তি নির্ণয় করো।', marks: 3, answer: 'গতিশক্তি Ek = 10,000 J = 10 kJ।' },
+              partD: { question: 'ঘ. পাহাড়ে ওঠার ক্ষেত্রে দৌড়বিদের ব্যয়িত ক্ষমতা গাণিতিকভাবে বিশ্লেষণ করো।', marks: 4, answer: 'ব্যয়িত ক্ষমতা P = 98 Watt।' },
+            },
+            marks: 10,
+            difficulty: 'Medium',
+            sourceType: 'BOARD_EXAM',
+            createdAt: new Date().toISOString(),
+          },
+        ],
+      },
+    ],
+    createdAt: new Date().toISOString(),
+  });
+
+  // Initial boot: Auth state, Public workspace branding, & Live visitor counter
   useEffect(() => {
     testFirestoreConnection();
 
-    // 1. Authoritative Cloud & Local Workspace Branding Load
     loadWorkspaceBranding().then((ws) => {
       setCurrentWorkspace(ws);
-      // Only set in userProfile if the current logged-in user is the super admin owner!
-      if (currentUser?.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
-        setUserProfile((prev) => ({
-          ...prev,
-          institutionName: ws.institutionName,
-          institutionAddress: ws.institutionAddress,
-          logoUrl: ws.logoUrl,
-          watermarkText: ws.watermarkText,
-          watermarkOpacity: ws.watermarkOpacity,
-        }));
-      }
     });
-
-    // 2. Count pending user submissions for Admin Dashboard
-    loadSubmittedQuestions().then((list) => {
-      setPendingSubmissionsCount(list.filter((s) => s.status === 'PENDING').length);
-    });
-
-    const cachedQuestions = localStorage.getItem('edu_questions');
-    const cachedPapers = localStorage.getItem('edu_papers');
-
-    if (cachedQuestions) {
-      try {
-        setQuestions(JSON.parse(cachedQuestions));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      const initialSeed: Question[] = [
-        {
-          id: 'seed-phy-cq1',
-          classLevel: 'Class 10',
-          subject: 'Physics',
-          chapter: 'কাজ, ক্ষমতা ও শক্তি',
-          questionType: 'CQ',
-          questionText: 'পদার্থবিজ্ঞান সৃজনশীল উদ্দীপক',
-          stimulus: '৫০ কেজি ভরের একজন দৌড়বিদ স্থির অবস্থা থেকে ২ ms⁻² সুষম ত্বরণে ১০ সেকেন্ড দৌড়ালেন। এরপর তিনি একটি ৬০ মিটার উঁচু পাহাড়ে ৫ মিনিটে উঠলেন। [g = 9.8 ms⁻²]',
-          cqParts: {
-            partA: { question: 'ক. কর্মদক্ষতা কাকে বলে?', marks: 1, answer: 'লভ্য কার্যকর শক্তি ও মোট প্রদত্ত শক্তির অনুপাত।' },
-            partB: { question: 'খ. চলন্ত বাস হঠাৎ ব্রেক কষলে যাত্রীরা সামনের দিকে ঝুঁকে পড়েন কেন?', marks: 2, answer: 'গতি জড়তার কারণে।' },
-            partC: { question: 'গ. দৌড় শুরুর ১০ সেকেন্ড পর দৌড়বিদের গতিশক্তি নির্ণয় করো।', marks: 3, answer: 'গতিশক্তি Ek = 10,000 J = 10 kJ।' },
-            partD: { question: 'ঘ. পাহাড়ে ওঠার ক্ষেত্রে দৌড়বিদের ব্যয়িত ক্ষমতা গাণিতিকভাবে বিশ্লেষণ করো।', marks: 4, answer: 'ব্যয়িত ক্ষমতা P = 98 Watt।' },
-          },
-          marks: 10,
-          difficulty: 'Medium',
-          sourceType: 'BOARD_EXAM',
-          sourceVerificationStatus: 'Verified',
-          isFavorite: true,
-          boardInfo: { boardName: 'Dhaka Board', year: '2024', examType: 'SSC Exam', isVerified: true },
-          createdAt: new Date().toISOString(),
-        },
-      ];
-      setQuestions(initialSeed);
-      localStorage.setItem('edu_questions', JSON.stringify(initialSeed));
-    }
-
-    if (cachedPapers) {
-      try {
-        setPapers(JSON.parse(cachedPapers));
-      } catch (e) {
-        console.error(e);
-      }
-    } else {
-      const initialPaper: QuestionPaper = {
-        id: 'paper-ssc-pretest-2026',
-        ownerId: 'owner',
-        title: 'প্রাক-নির্বাচনী পরীক্ষা ২০২৬ (Pre-Test Examination)',
-        institutionName: 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ',
-        institutionAddress: 'মতিঝিল, ঢাকা-১০০০',
-        classLevel: 'Class 10',
-        subject: 'পদার্থবিজ্ঞান (Physics)',
-        subjectCode: '136',
-        totalMarks: 70,
-        duration: '২ ঘণ্টা ৩০ মিনিট',
-        examDate: '১৫/১১/২০২৬',
-        instructions: [
-          '১. ডান পাশের সংখ্যা প্রশ্নের পূর্ণমান নির্দেশক।',
-          '২. ক-বিভাগ থেকে অন্তত ২টি এবং খ-বিভাগ থেকে অন্তত ২টি করে মোট ৭টি সৃজনশীল প্রশ্নের উত্তর দাও।',
-        ],
-        watermarkText: 'IDEAL SCHOOL',
-        watermarkOpacity: 0.08,
-        sections: [
-          {
-            id: 'sec-1',
-            titleBn: 'ক-বিভাগ: সৃজনশীল প্রশ্ন (বল, গতি ও শক্তি)',
-            titleEn: 'Section A: Creative Questions',
-            instructions: 'যেকোনো ৪টি প্রশ্নের উত্তর দাও। প্রতিটির মান ১০।',
-            questions: [
-              {
-                id: 'paper-q1',
-                classLevel: 'Class 10',
-                subject: 'Physics',
-                chapter: 'কাজ, ক্ষমতা ও শক্তি',
-                questionType: 'CQ',
-                questionText: 'পদার্থবিজ্ঞান সৃজনশীল উদ্দীপক',
-                stimulus: '৫০ কেজি ভরের একজন দৌড়বিদ স্থির অবস্থা থেকে ২ ms⁻² সুষম ত্বরণে ১০ সেকেন্ড দৌড়ালেন। এরপর তিনি একটি ৬০ মিটার উঁচু পাহাড়ে ৫ মিনিটে উঠলেন। [g = 9.8 ms⁻²]',
-                cqParts: {
-                  partA: { question: 'ক. কর্মদক্ষতা কাকে বলে?', marks: 1, answer: 'লভ্য কার্যকর শক্তি ও মোট প্রদত্ত শক্তির অনুপাত।' },
-                  partB: { question: 'খ. চলন্ত বাস হঠাৎ ব্রেক কষলে যাত্রীরা সামনের দিকে ঝুঁকে পড়েন কেন?', marks: 2, answer: 'গতি জড়তার কারণে।' },
-                  partC: { question: 'গ. দৌড় শুরুর ১০ সেকেন্ড পর দৌড়বিদের গতিশক্তি নির্ণয় করো।', marks: 3, answer: 'গতিশক্তি Ek = 10,000 J = 10 kJ।' },
-                  partD: { question: 'ঘ. পাহাড়ে ওঠার ক্ষেত্রে দৌড়বিদের ব্যয়িত ক্ষমতা গাণিতিকভাবে বিশ্লেষণ করো।', marks: 4, answer: 'ব্যয়িত ক্ষমতা P = 98 Watt।' },
-                },
-                marks: 10,
-                difficulty: 'Medium',
-                sourceType: 'BOARD_EXAM',
-                createdAt: new Date().toISOString(),
-              },
-            ],
-          },
-        ],
-        createdAt: new Date().toISOString(),
-      };
-      setPapers([initialPaper]);
-      setCurrentEditingPaper(initialPaper);
-      localStorage.setItem('edu_papers', JSON.stringify([initialPaper]));
-    }
 
     const syncUserProfile = async (user: FirebaseUser) => {
       try {
@@ -467,7 +399,7 @@ export default function App() {
         setAuthError(formatAuthError(err));
       });
 
-    // Auth listener: automatically syncs user profile to Firestore so admin can see all logged-in Gmail users
+    // Auth listener: unlocks full question bank & user data immediately upon sign-in
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
       setAuthLoading(false);
@@ -477,15 +409,6 @@ export default function App() {
       } else {
         setUserProfile(GUEST_PROFILE);
       }
-    });
-
-    // Load cloud questions from Firestore and subscribe so all users see admin-uploaded & approved questions
-    loadCloudQuestions().then((cloudQs) => {
-      setQuestions(cloudQs);
-    });
-
-    const unsubscribeQuestions = subscribeToCloudQuestions((cloudQs) => {
-      setQuestions(cloudQs);
     });
 
     // Record page view automatically whenever this website link is opened
@@ -500,9 +423,119 @@ export default function App() {
     return () => {
       unsubscribe();
       unsubscribeViews();
-      unsubscribeQuestions();
     };
   }, []);
+
+  // Auth-gated Data Hydration & Real-Time Cloud Sync
+  // Unauthenticated guests see ONLY curated preview questions; signed-in users unlock ALL data.
+  useEffect(() => {
+    if (authLoading) return;
+
+    if (!currentUser) {
+      setQuestions(getGuestPreviewQuestions());
+      setPapers([]);
+      setCurrentEditingPaper(null);
+      setPendingSubmissionsCount(0);
+      return;
+    }
+
+    let isActive = true;
+    let unsubscribeQuestions = () => {};
+
+    // 1. Hydrate full local + authentic NCTB bank immediately, then sync Firestore live
+    try {
+      const saved = localStorage.getItem('edu_questions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setQuestions(mergeWithDefaultQuestions(parsed));
+        } else {
+          setQuestions(mergeWithDefaultQuestions([]));
+        }
+      } else {
+        setQuestions(mergeWithDefaultQuestions([]));
+      }
+    } catch {
+      setQuestions(mergeWithDefaultQuestions([]));
+    }
+
+    loadCloudQuestions().then((cloudQs) => {
+      if (isActive) setQuestions(cloudQs);
+    });
+
+    unsubscribeQuestions = subscribeToCloudQuestions((cloudQs) => {
+      if (isActive) setQuestions(cloudQs);
+    });
+
+    // 2. Hydrate user's saved question papers from localStorage + Firestore
+    const hydratePapers = async () => {
+      let localList: QuestionPaper[] = [];
+      try {
+        const cachedPapers = localStorage.getItem('edu_papers');
+        if (cachedPapers) {
+          const parsed = JSON.parse(cachedPapers);
+          if (Array.isArray(parsed)) localList = parsed;
+        }
+      } catch {
+        localList = [];
+      }
+
+      let remoteList: QuestionPaper[] = [];
+      try {
+        const isOwner = currentUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase();
+        const papersRef = isOwner
+          ? collection(db, 'question_papers')
+          : query(collection(db, 'question_papers'), where('ownerId', '==', currentUser.uid));
+        const snap = await getDocs(papersRef);
+        remoteList = snap.docs.map((d) => d.data() as QuestionPaper);
+      } catch (err) {
+        console.warn('Could not fetch remote papers:', err);
+      }
+
+      const paperMap = new Map<string, QuestionPaper>();
+      localList.forEach((p) => paperMap.set(p.id, p));
+      remoteList.forEach((p) => paperMap.set(p.id, p));
+      const mergedPapers = Array.from(paperMap.values());
+
+      if (!isActive) return;
+
+      if (mergedPapers.length > 0) {
+        setPapers(mergedPapers);
+        setCurrentEditingPaper((prev) => prev || mergedPapers[0]);
+        try {
+          localStorage.setItem('edu_papers', JSON.stringify(mergedPapers));
+        } catch {
+          // ignore
+        }
+      } else {
+        const sample = buildInitialSamplePaper(currentUser.uid);
+        setPapers([sample]);
+        setCurrentEditingPaper(sample);
+        try {
+          localStorage.setItem('edu_papers', JSON.stringify([sample]));
+        } catch {
+          // ignore
+        }
+      }
+    };
+    hydratePapers();
+
+    // 3. Pending submissions badge (Super Admin only)
+    if (currentUser.email?.toLowerCase() === OWNER_EMAIL.toLowerCase()) {
+      loadSubmittedQuestions().then((list) => {
+        if (isActive) {
+          setPendingSubmissionsCount(list.filter((s) => s.status === 'PENDING').length);
+        }
+      });
+    } else {
+      setPendingSubmissionsCount(0);
+    }
+
+    return () => {
+      isActive = false;
+      unsubscribeQuestions();
+    };
+  }, [currentUser, authLoading]);
 
   // In-app browser detection (Facebook/Messenger/Instagram/WhatsApp webview)
   const isInAppBrowser = useMemo(() => {
@@ -686,6 +719,10 @@ export default function App() {
   const handleSignOut = async () => {
     await signOut(auth);
     setCurrentUser(null);
+    setQuestions(getGuestPreviewQuestions());
+    setPapers([]);
+    setCurrentEditingPaper(null);
+    setActiveView('library');
   };
 
   // Workspace Actions
@@ -735,8 +772,12 @@ export default function App() {
     logActivity('TRANSFER_OWNERSHIP', 'WORKSPACE', `Transferred ownership to ${target.userEmail}.`);
   };
 
-  // Question & Paper handlers
+  // Question & Paper handlers (Require authentication)
   const handleAddQuestionToLibrary = async (q: Question) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     const exists = questions.some((item) => item.id === q.id);
     let updated: Question[];
     if (exists) {
@@ -751,10 +792,18 @@ export default function App() {
   };
 
   const handleAddQuestionToActivePaper = (q: Question) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     handleBulkAddQuestionsToActivePaper([q]);
   };
 
   const handleBulkAddQuestionsToActivePaper = (newQs: Question[]) => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     if (!newQs || newQs.length === 0) return;
 
     if (!currentEditingPaper) {
@@ -863,9 +912,13 @@ export default function App() {
   };
 
   const handleCreateNewPaper = () => {
+    if (!currentUser) {
+      setShowAuthModal(true);
+      return;
+    }
     const freshPaper: QuestionPaper = {
       id: `paper-${Date.now()}`,
-      ownerId: currentUser?.uid || 'guest',
+      ownerId: currentUser.uid,
       title: isBangla ? 'নতুন পরীক্ষা পত্র ২০২৬' : 'New Examination Paper 2026',
       institutionName:
         userProfile.institutionName ||
@@ -942,7 +995,7 @@ export default function App() {
             </button>
 
             <div
-              onClick={() => setActiveView('dashboard')}
+              onClick={() => setActiveView('library')}
               className="flex items-center gap-2.5 cursor-pointer select-none"
             >
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
@@ -988,11 +1041,17 @@ export default function App() {
               <span className={!isBangla ? 'text-blue-700 font-black' : 'text-slate-400'}>EN</span>
             </button>
 
-            {/* Public Upload Question Button (Available for all visitors & Vercel users) */}
+            {/* Upload Question Button (Requires sign-in) */}
             <button
-              onClick={() => setSubmitQuestionModalOpen(true)}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
+                setSubmitQuestionModalOpen(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs shadow-emerald-600/20"
-              title="নতুন প্রশ্ন আপলোড করুন (এডমিনকে নোটিফাই করা হবে)"
+              title="নতুন প্রশ্ন আপলোড করুন (লগইন আবশ্যক)"
             >
               <Upload className="w-3.5 h-3.5" />
               <span>{isBangla ? 'প্রশ্ন আপলোড করুন' : 'Upload Question'}</span>
@@ -1069,6 +1128,7 @@ export default function App() {
               const Icon = item.icon;
               const isActive = activeView === item.id;
               const badge = (item as any).badge;
+              const isLockedForGuest = !currentUser && (item.id === 'create-paper' || item.id === 'saved-papers');
 
               return (
                 <button
@@ -1084,6 +1144,9 @@ export default function App() {
                   <span className="flex-1 text-left truncate">
                     {isBangla ? item.labelBn : item.label}
                   </span>
+                  {isLockedForGuest && (
+                    <Lock className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-100' : 'text-amber-500'}`} />
+                  )}
                   {badge !== undefined && badge > 0 && (
                     <span
                       className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
@@ -1099,14 +1162,31 @@ export default function App() {
 
             {/* Quick Stats Widget */}
             <div className="pt-3 mt-3 border-t border-slate-100 px-3 text-xs space-y-1.5">
-              <div className="flex justify-between text-slate-500">
-                <span>{isBangla ? 'সংরক্ষিত প্রশ্ন:' : 'Saved Questions:'}</span>
-                <span className="font-bold text-slate-800">{questions.length}</span>
-              </div>
-              <div className="flex justify-between text-slate-500">
-                <span>{isBangla ? 'পরীক্ষা পত্র:' : 'Exam Papers:'}</span>
-                <span className="font-bold text-blue-700">{papers.length}</span>
-              </div>
+              {currentUser ? (
+                <>
+                  <div className="flex justify-between text-slate-500">
+                    <span>{isBangla ? 'সংরক্ষিত প্রশ্ন:' : 'Saved Questions:'}</span>
+                    <span className="font-bold text-slate-800">{questions.length}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>{isBangla ? 'পরীক্ষা পত্র:' : 'Exam Papers:'}</span>
+                    <span className="font-bold text-blue-700">{papers.length}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex justify-between text-slate-500">
+                    <span>{isBangla ? 'নমুনা প্রিভিউ:' : 'Preview Samples:'}</span>
+                    <span className="font-bold text-slate-800">{questions.length}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>{isBangla ? 'সম্পূর্ণ ব্যাংক:' : 'Full Bank:'}</span>
+                    <span className="font-bold text-amber-600 flex items-center gap-1">
+                      <Lock className="w-3 h-3" /> {TOTAL_BASELINE_QUESTIONS_COUNT}+
+                    </span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Mobile App & APK/AAB Installer */}
@@ -1169,6 +1249,7 @@ export default function App() {
                     const Icon = item.icon;
                     const isActive = activeView === item.id;
                     const badge = (item as any).badge;
+                    const isLockedForGuest = !currentUser && (item.id === 'create-paper' || item.id === 'saved-papers');
                     return (
                       <button
                         key={item.id}
@@ -1184,6 +1265,9 @@ export default function App() {
                       >
                         <Icon className="w-4 h-4" />
                         <span className="flex-1 text-left">{isBangla ? item.labelBn : item.label}</span>
+                        {isLockedForGuest && (
+                          <Lock className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-blue-100' : 'text-amber-500'}`} />
+                        )}
                         {badge !== undefined && badge > 0 && (
                           <span
                             className={`px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
@@ -1221,39 +1305,107 @@ export default function App() {
             <QuestionLibraryView
               questions={questions}
               currentUserRole={currentUserRole}
+              isAuthenticated={Boolean(currentUser)}
+              lockedTotalCount={Math.max(TOTAL_BASELINE_QUESTIONS_COUNT, questions.length)}
+              onRequireAuth={() => setShowAuthModal(true)}
+              onGoogleSignIn={() => handleGoogleSignIn(false)}
               isBangla={isBangla}
               dynamicClasses={dynamicClasses}
               dynamicSubjects={dynamicSubjects}
               onAddQuestion={async (newQ) => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
                 const updated = [newQ, ...questions];
                 handleSaveQuestions(updated);
                 await saveQuestionToCloud(newQ);
                 logActivity('ADD_QUESTION', 'QUESTION', `Added question ${newQ.id}`);
               }}
               onUpdateQuestion={async (q) => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
                 const updated = questions.map((item) => (item.id === q.id ? q : item));
                 handleSaveQuestions(updated);
                 await saveQuestionToCloud(q);
                 logActivity('UPDATE_QUESTION', 'QUESTION', `Updated question: ${q.id}`);
               }}
               onDeleteQuestion={async (id) => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
                 const updated = questions.filter((item) => item.id !== id);
                 handleSaveQuestions(updated);
                 await deleteQuestionFromCloud(id);
                 logActivity('DELETE_QUESTION', 'QUESTION', `Deleted question: ${id}`);
               }}
               onAddToPaper={(q) => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
                 handleAddQuestionToActivePaper(q);
                 setActiveView('create-paper');
               }}
               onBulkAddToPaper={(selected) => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
                 handleBulkAddQuestionsToActivePaper(selected);
                 setActiveView('create-paper');
               }}
             />
           )}
 
-          {activeView === 'create-paper' && (
+          {(activeView === 'create-paper' || activeView === 'preview' || activeView === 'saved-papers') && !currentUser && (
+            <div className="bg-white p-8 sm:p-12 rounded-3xl border-2 border-blue-200 text-center max-w-xl mx-auto my-8 space-y-5 shadow-sm">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center mx-auto shadow-md shadow-blue-500/20">
+                <Lock className="w-8 h-8" />
+              </div>
+              <div className="space-y-2">
+                <h3 className="font-black text-slate-900 text-xl">
+                  {isBangla
+                    ? 'এই অংশটি দেখার জন্য লগইন প্রয়োজন'
+                    : 'Sign In Required to Access Exam Papers'}
+                </h3>
+                <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                  {isBangla
+                    ? 'প্রশ্নপত্র তৈরি, সংরক্ষিত প্রশ্নপত্র দেখা এবং A4 সাইজে প্রিন্ট/PDF ডাউনলোড করতে আপনার Gmail অথবা যেকোনো ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন।'
+                    : 'Please sign in with Google (Gmail) or your email account to create, save, and print examination papers.'}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                <button
+                  onClick={() => handleGoogleSignIn(false)}
+                  className="px-5 py-3 bg-white hover:bg-slate-50 text-slate-900 border border-slate-300 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
+                  <span>{isBangla ? 'Google / Gmail দিয়ে লগইন' : 'Continue with Google'}</span>
+                </button>
+                <button
+                  onClick={() => setShowAuthModal(true)}
+                  className="px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xs cursor-pointer"
+                >
+                  <LogIn className="w-4 h-4" />
+                  <span>{isBangla ? 'ইমেইল / পাসওয়ার্ড লগইন' : 'Email Sign In / Sign Up'}</span>
+                </button>
+              </div>
+              <div>
+                <button
+                  onClick={() => setActiveView('library')}
+                  className="text-xs font-semibold text-slate-500 hover:text-blue-600 underline"
+                >
+                  {isBangla ? '← প্রিভিউ প্রশ্ন ব্যাংকে ফিরে যান' : '← Back to Preview Question Bank'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {activeView === 'create-paper' && currentUser && (
             currentEditingPaper ? (
               <CreateQuestionPaperView
                 questions={questions}
@@ -1301,7 +1453,7 @@ export default function App() {
             )
           )}
 
-          {activeView === 'preview' && (
+          {activeView === 'preview' && currentUser && (
             currentEditingPaper ? (
               <div className="space-y-4">
                 <div className="no-print flex items-center justify-between">
@@ -1330,7 +1482,7 @@ export default function App() {
             )
           )}
 
-          {activeView === 'saved-papers' && (
+          {activeView === 'saved-papers' && currentUser && (
             <div className="space-y-6">
               <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-4">
                 <div>
@@ -1409,6 +1561,9 @@ export default function App() {
                             onClick={() => {
                               const updated = papers.filter((item) => item.id !== p.id);
                               handleSavePapers(updated);
+                              if (currentUser) {
+                                deleteDoc(doc(db, 'question_papers', p.id)).catch(() => {});
+                              }
                               if (currentEditingPaper?.id === p.id) {
                                 setCurrentEditingPaper(updated[0] || null);
                               }
@@ -1648,10 +1803,12 @@ export default function App() {
                 <Shield className="w-6 h-6" />
               </div>
               <h3 className="text-lg font-bold text-slate-900">
-                {isBangla ? 'ওয়ার্কস্পেস অ্যাকাউন্টে প্রবেশ' : 'Workspace Account Sign In'}
+                {isBangla ? 'লগইন করে সম্পূর্ণ প্রশ্ন ব্যাংক আনলক করুন' : 'Sign In to Unlock All Questions'}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
-                {isBangla ? 'গুগল বা অনুমোদিত ইমেইল দিয়ে লগইন করুন' : 'Sign in with Google or authorized credentials'}
+                {isBangla
+                  ? 'Google (Gmail) অথবা যেকোনো ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করলেই সকল ডেটা ও ফিচার দেখতে পারবেন'
+                  : 'Sign in with Gmail or any Email account to unlock full data and exam paper builder'}
               </p>
             </div>
 
@@ -1685,35 +1842,6 @@ export default function App() {
                           className="px-2.5 py-1 bg-white hover:bg-rose-100 text-rose-800 border border-rose-300 rounded-lg text-[10px] font-bold flex items-center gap-1"
                         >
                           📋 ডোমেইন কপি করুন ({typeof window !== 'undefined' ? window.location.hostname : ''})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            // Temporary offline admin bypass for testing on preview domain
-                            const offlineAdmin = {
-                              uid: 'owner-jahidul',
-                              email: OWNER_EMAIL,
-                              displayName: 'Md. Jahidul Islam (Admin)',
-                            };
-                            setCurrentUser(offlineAdmin as any);
-                            setUserProfile({
-                              uid: 'owner-jahidul',
-                              email: OWNER_EMAIL,
-                              displayName: 'Md. Jahidul Islam (Admin)',
-                              institutionName: currentWorkspace.institutionName || 'মতিঝিল আইডিয়াল স্কুল অ্যান্ড কলেজ',
-                              institutionAddress: currentWorkspace.institutionAddress || 'মতিঝিল, ঢাকা-১০০০',
-                              logoUrl: currentWorkspace.logoUrl || '',
-                              watermarkText: currentWorkspace.watermarkText || 'IDEAL SCHOOL',
-                              watermarkOpacity: currentWorkspace.watermarkOpacity || 0.08,
-                              watermarkPosition: 'diagonal',
-                              defaultLanguage: 'Bangla',
-                            });
-                            setShowAuthModal(false);
-                            setAuthError(null);
-                          }}
-                          className="px-2.5 py-1 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-[10px] font-bold"
-                        >
-                          🛡️ অফলাইন এডমিন হিসেবে প্রবেশ করুন (Bypass)
                         </button>
                       </div>
                     )}
@@ -1931,7 +2059,13 @@ export default function App() {
             </div>
 
             <button
-              onClick={() => setSubmitQuestionModalOpen(true)}
+              onClick={() => {
+                if (!currentUser) {
+                  setShowAuthModal(true);
+                  return;
+                }
+                setSubmitQuestionModalOpen(true);
+              }}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-xs font-bold transition-colors shadow-2xs"
             >
               <Upload className="w-3.5 h-3.5" />

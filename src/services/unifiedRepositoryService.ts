@@ -235,7 +235,7 @@ export function buildItemFromQuestion(q: Question): RepositoryContentItem {
     fullBody = `${q.stimulus}\n${fullBody}`;
   }
   if (q.cqParts) {
-    fullBody += `\nক. ${q.cqParts.partA.question}\nখ. ${q.cqParts.partB.question}\nগ. ${q.cqParts.partC.question}\nঘ. ${q.cqParts.partD.question}`;
+    fullBody += `\nক. ${q.cqParts.partA.question}\nখ. ${q.cqParts.partB.question}\nগ. ${q.cqParts.partC.question}${q.cqParts.partD ? `\nঘ. ${q.cqParts.partD.question}` : ''}`;
   }
   if (q.options) {
     fullBody += `\n${q.options.map((opt, i) => `${['i', 'ii', 'iii', 'iv'][i] || i + 1}) ${opt}`).join('  ')}`;
@@ -606,7 +606,7 @@ export function searchUnifiedRepository(
           if (qr.cqParts.partA.question.toLowerCase().includes(qClean)) matchesQuestionFields = true;
           if (qr.cqParts.partB.question.toLowerCase().includes(qClean)) matchesQuestionFields = true;
           if (qr.cqParts.partC.question.toLowerCase().includes(qClean)) matchesQuestionFields = true;
-          if (qr.cqParts.partD.question.toLowerCase().includes(qClean)) matchesQuestionFields = true;
+          if (qr.cqParts.partD?.question.toLowerCase().includes(qClean)) matchesQuestionFields = true;
         }
       }
 

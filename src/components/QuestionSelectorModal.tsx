@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Question, BoardExamQuestionRecord, ClassLevel, QuestionType } from '../types';
 import { NCTB_SUBJECTS, BANGLADESH_BOARDS, BOARD_EXAM_YEARS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   X,
   Search,
@@ -200,7 +201,7 @@ export const QuestionSelectorModal: React.FC<QuestionSelectorModalProps> = ({
           ? q.cqParts.partA.question.toLowerCase().includes(query) ||
             q.cqParts.partB.question.toLowerCase().includes(query) ||
             q.cqParts.partC.question.toLowerCase().includes(query) ||
-            q.cqParts.partD.question.toLowerCase().includes(query)
+            (q.cqParts.partD?.question.toLowerCase().includes(query) ?? false)
           : false;
 
         if (
@@ -563,13 +564,15 @@ export const QuestionSelectorModal: React.FC<QuestionSelectorModalProps> = ({
                       <MathRenderer content={q.questionText} />
                     </div>
 
-                    {/* CQ 4 Parts Snippet */}
+                    {/* CQ Parts Snippet */}
                     {q.questionType === 'CQ' && q.cqParts && (
                       <div className="grid grid-cols-2 gap-1.5 text-[11px] text-slate-700 pt-1">
                         <div className="truncate">ক. <MathRenderer content={q.cqParts.partA.question} /></div>
                         <div className="truncate">খ. <MathRenderer content={q.cqParts.partB.question} /></div>
                         <div className="truncate">গ. <MathRenderer content={q.cqParts.partC.question} /></div>
-                        <div className="truncate">ঘ. <MathRenderer content={q.cqParts.partD.question} /></div>
+                        {!isMathSubject(q.subject) && q.cqParts.partD && (
+                          <div className="truncate">ঘ. <MathRenderer content={q.cqParts.partD.question} /></div>
+                        )}
                       </div>
                     )}
 

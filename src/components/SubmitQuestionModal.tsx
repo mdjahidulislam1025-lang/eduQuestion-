@@ -13,6 +13,7 @@ import {
   compressDiagramImage,
   cleanOptionPaste,
   parseSmartQuestionText,
+  isMathSubject,
 } from '../utils/questionMediaHelper';
 import {
   X,
@@ -266,12 +267,18 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
       diagramCaption: diagramCaption.trim() || undefined,
       cqParts:
         questionType === 'CQ'
-          ? {
-              partA: { question: partA.trim() || 'জ্ঞানমূলক প্রশ্ন', marks: 1 },
-              partB: { question: partB.trim() || 'অনুধাবনমূলক প্রশ্ন', marks: 2 },
-              partC: { question: partC.trim() || 'প্রয়োগমূলক প্রশ্ন', marks: 3 },
-              partD: { question: partD.trim() || 'উচ্চতর দক্ষতামূলক প্রশ্ন', marks: 4 },
-            }
+          ? isMathSubject(activeSubject)
+            ? {
+                partA: { question: partA.trim() || 'ক. প্রশ্ন', marks: 2 },
+                partB: { question: partB.trim() || 'খ. প্রশ্ন', marks: 4 },
+                partC: { question: partC.trim() || 'গ. প্রশ্ন', marks: 4 },
+              }
+            : {
+                partA: { question: partA.trim() || 'জ্ঞানমূলক প্রশ্ন', marks: 1 },
+                partB: { question: partB.trim() || 'অনুধাবনমূলক প্রশ্ন', marks: 2 },
+                partC: { question: partC.trim() || 'প্রয়োগমূলক প্রশ্ন', marks: 3 },
+                partD: { question: partD.trim() || 'উচ্চতর দক্ষতামূলক প্রশ্ন', marks: 4 },
+              }
           : undefined,
       explanation: explanation.trim() || undefined,
       marks: questionType === 'CQ' ? 10 : Number(marks) || 1,
@@ -1093,58 +1100,81 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
               )}
 
               {/* CQ Parts */}
-              {questionType === 'CQ' && (
-                <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                  <div className="text-xs font-bold text-slate-700">
-                    {isBangla ? 'সৃজনশীল প্রশ্নাবলি (ক, খ, গ, ঘ):' : 'CQ Sub-questions:'}
+              {questionType === 'CQ' && (() => {
+                const activeSubName = subject === '__CUSTOM__' ? customSubject : subject;
+                const isMath = isMathSubject(activeSubName);
+                return (
+                  <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-xs font-bold text-slate-700">
+                        {isMath
+                          ? isBangla
+                            ? 'গণিত সৃজনশীল প্রশ্নাবলি (৩টি প্রশ্ন: ক, খ, গ):'
+                            : 'Math CQ Sub-questions (3 parts: 2, 4, 4):'
+                          : isBangla
+                          ? 'সৃজনশীল প্রশ্নাবলি (ক, খ, গ, ঘ):'
+                          : 'CQ Sub-questions:'}
+                      </span>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-blue-100 text-blue-800">
+                        {isMath ? 'মানবণ্টন: ২ + ৪ + ৪ = ১০' : 'মানবণ্টন: ১ + ২ + ৩ + ৪ = ১০'}
+                      </span>
+                    </div>
+                    <div className="space-y-2">
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-600">
+                          {isMath ? 'ক (২ নম্বর):' : 'ক. জ্ঞানমূলক (১ নম্বর):'}
+                        </span>
+                        <input
+                          type="text"
+                          value={partA}
+                          onChange={(e) => setPartA(e.target.value)}
+                          placeholder="ক. প্রশ্ন..."
+                          className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-600">
+                          {isMath ? 'খ (৪ নম্বর):' : 'খ. অনুধাবনমূলক (২ নম্বর):'}
+                        </span>
+                        <input
+                          type="text"
+                          value={partB}
+                          onChange={(e) => setPartB(e.target.value)}
+                          placeholder="খ. প্রশ্ন..."
+                          className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
+                        />
+                      </div>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-600">
+                          {isMath ? 'গ (৪ নম্বর):' : 'গ. প্রয়োগমূলক (৩ নম্বর):'}
+                        </span>
+                        <input
+                          type="text"
+                          value={partC}
+                          onChange={(e) => setPartC(e.target.value)}
+                          placeholder="গ. প্রশ্ন..."
+                          className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
+                        />
+                      </div>
+                      {!isMath && (
+                        <div>
+                          <span className="text-[11px] font-bold text-slate-600">ঘ. উচ্চতর দক্ষতামূলক (৪ নম্বর):</span>
+                          <input
+                            type="text"
+                            value={partD}
+                            onChange={(e) => setPartD(e.target.value)}
+                            placeholder="ঘ. প্রশ্ন..."
+                            className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600">ক. জ্ঞানমূলক (১ নম্বর):</span>
-                      <input
-                        type="text"
-                        value={partA}
-                        onChange={(e) => setPartA(e.target.value)}
-                        placeholder="ক. প্রশ্ন..."
-                        className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600">খ. অনুধাবনমূলক (২ নম্বর):</span>
-                      <input
-                        type="text"
-                        value={partB}
-                        onChange={(e) => setPartB(e.target.value)}
-                        placeholder="খ. প্রশ্ন..."
-                        className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600">গ. প্রয়োগমূলক (৩ নম্বর):</span>
-                      <input
-                        type="text"
-                        value={partC}
-                        onChange={(e) => setPartC(e.target.value)}
-                        placeholder="গ. প্রশ্ন..."
-                        className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[11px] font-bold text-slate-600">ঘ. উচ্চতর দক্ষতামূলক (৪ নম্বর):</span>
-                      <input
-                        type="text"
-                        value={partD}
-                        onChange={(e) => setPartD(e.target.value)}
-                        placeholder="ঘ. প্রশ্ন..."
-                        className="w-full text-xs border border-slate-300 rounded-xl p-2 mt-0.5 bg-white"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Live Preview Box */}
-              {(questionText.trim() || stimulus.trim() || option1 || diagramUrl) && (
+              {(questionText.trim() || stimulus.trim() || option1 || diagramUrl || partA.trim()) && (
                 <div className="p-3 bg-blue-50/50 border border-blue-200 rounded-2xl space-y-2">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-blue-900">
                     <Eye className="w-3.5 h-3.5 text-blue-600" />
@@ -1170,6 +1200,39 @@ export const SubmitQuestionModal: React.FC<SubmitQuestionModalProps> = ({
                         )}
                       </div>
                     )}
+
+                    {questionType === 'CQ' && (() => {
+                      const activeSubName = subject === '__CUSTOM__' ? customSubject : subject;
+                      const isMath = isMathSubject(activeSubName);
+                      return (
+                        <div className="space-y-1 pt-1 text-slate-700">
+                          {partA.trim() && (
+                            <div className="flex justify-between gap-2">
+                              <span>ক. <MathRenderer content={partA} /></span>
+                              <span className="font-bold text-slate-500">[{isMath ? 2 : 1}]</span>
+                            </div>
+                          )}
+                          {partB.trim() && (
+                            <div className="flex justify-between gap-2">
+                              <span>খ. <MathRenderer content={partB} /></span>
+                              <span className="font-bold text-slate-500">[{isMath ? 4 : 2}]</span>
+                            </div>
+                          )}
+                          {partC.trim() && (
+                            <div className="flex justify-between gap-2">
+                              <span>গ. <MathRenderer content={partC} /></span>
+                              <span className="font-bold text-slate-500">[{isMath ? 4 : 3}]</span>
+                            </div>
+                          )}
+                          {!isMath && partD.trim() && (
+                            <div className="flex justify-between gap-2">
+                              <span>ঘ. <MathRenderer content={partD} /></span>
+                              <span className="font-bold text-slate-500">[4]</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
 
                     {questionType === 'MCQ' && (
                       <div className="grid grid-cols-2 gap-1.5 pt-1 text-slate-700">

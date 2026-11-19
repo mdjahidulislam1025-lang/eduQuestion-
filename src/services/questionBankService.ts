@@ -1,4 +1,4 @@
-import { db, sanitizeFirestoreData } from '../lib/firebase';
+import { db, auth, sanitizeFirestoreData } from '../lib/firebase';
 import {
   collection,
   doc,
@@ -13,6 +13,28 @@ import { AUTHENTIC_NCTB_QUESTIONS } from '../data/authenticNctbQuestions';
 const SAVED_QUESTIONS_COLLECTION = 'saved_questions';
 const LOCAL_STORAGE_ALL_KEY = 'edu_questions';
 const LOCAL_STORAGE_CUSTOM_KEY = 'edu_custom_user_questions';
+
+export const GUEST_PREVIEW_QUESTION_IDS = [
+  'nctb-phy-ch4-cq-ex1',
+  'nctb-math-ch9-cq-ex1',
+  'nctb-phy-ch2-mcq-ex1',
+  'nctb-chem-ch3-mcq-ex1',
+  'nctb-phy-ch3-sq-ex1',
+  'nctb-bgs-ch2-sq-ex1',
+];
+
+export const TOTAL_BASELINE_QUESTIONS_COUNT = AUTHENTIC_NCTB_QUESTIONS.length;
+
+/**
+ * Returns a small curated preview subset of sample questions for unauthenticated visitors.
+ */
+export function getGuestPreviewQuestions(): Question[] {
+  const byId = new Map(AUTHENTIC_NCTB_QUESTIONS.map((q) => [q.id, q]));
+  const selected = GUEST_PREVIEW_QUESTION_IDS
+    .map((id) => byId.get(id))
+    .filter((q): q is Question => Boolean(q));
+  return selected.length > 0 ? selected : AUTHENTIC_NCTB_QUESTIONS.slice(0, 6);
+}
 
 /**
  * Helper to get custom questions saved on this device
@@ -124,7 +146,7 @@ async function syncLocalQuestionsToCloud(cloudIds: Set<string>): Promise<void> {
  * into Firestore `saved_questions` if missing in cloud, without overwriting existing/edited items.
  */
 async function syncMissingBaselineQuestionsToCloud(cloudIds: Set<string>): Promise<void> {
-  const SEED_KEY = 'edu_seeded_phy_ch2_ch3_v1';
+  const SEED_KEY = 'edu_seeded_phy_ch2_to_ch5_v1';
   try {
     if (localStorage.getItem(SEED_KEY) === 'done') return;
   } catch {
@@ -133,7 +155,13 @@ async function syncMissingBaselineQuestionsToCloud(cloudIds: Set<string>): Promi
 
   let allSynced = true;
   for (const q of AUTHENTIC_NCTB_QUESTIONS) {
-    if ((q.id.startsWith('nctb-phy-ch2-sq-') || q.id.startsWith('nctb-phy-ch3-sq-')) && !cloudIds.has(q.id)) {
+    if (
+      (q.id.startsWith('nctb-phy-ch2-sq-') ||
+        q.id.startsWith('nctb-phy-ch3-sq-') ||
+        q.id.startsWith('nctb-phy-ch4-sq-') ||
+        q.id.startsWith('nctb-phy-ch5-sq-')) &&
+      !cloudIds.has(q.id)
+    ) {
       try {
         await setDoc(
           doc(db, SAVED_QUESTIONS_COLLECTION, q.id),
@@ -163,6 +191,10 @@ async function syncMissingBaselineQuestionsToCloud(cloudIds: Set<string>): Promi
  * and local custom questions. Never loses questions on page refresh!
  */
 export async function loadCloudQuestions(): Promise<Question[]> {
+  if (!auth.currentUser) {
+    return getGuestPreviewQuestions();
+  }
+
   let cloudQs: Question[] = [];
 
   try {
@@ -188,9 +220,14 @@ export async function loadCloudQuestions(): Promise<Question[]> {
 
 /**
  * Real-time subscription to cloud questions.
- * When admin or user uploads a question, all connected users immediately receive the update.
+ * Only attaches Firestore snapshot listener when user is authenticated.
  */
 export function subscribeToCloudQuestions(onUpdate: (questions: Question[]) => void): () => void {
+  if (!auth.currentUser) {
+    onUpdate(getGuestPreviewQuestions());
+    return () => {};
+  }
+
   try {
     const unsubscribe = onSnapshot(
       collection(db, SAVED_QUESTIONS_COLLECTION),
@@ -206,7 +243,6 @@ export function subscribeToCloudQuestions(onUpdate: (questions: Question[]) => v
       },
       (err) => {
         console.warn('Questions onSnapshot listener error:', err);
-        // Even on error, provide merged local & default questions so UI is always functional
         const fallback = mergeWithDefaultQuestions([]);
         onUpdate(fallback);
       }
@@ -223,6 +259,10 @@ export function subscribeToCloudQuestions(onUpdate: (questions: Question[]) => v
  * so it is 100% permanently preserved across page reloads and device restarts.
  */
 export async function saveQuestionToCloud(question: Question): Promise<void> {
+  if (!auth.currentUser) {
+    return;
+  }
+
   // 1. Always save locally first so user never loses their data
   saveLocalCustomQuestion(question);
 
@@ -253,6 +293,10 @@ export async function saveQuestionToCloud(question: Question): Promise<void> {
  * Deletes a question from Firestore `saved_questions` and local cache.
  */
 export async function deleteQuestionFromCloud(questionId: string): Promise<void> {
+  if (!auth.currentUser) {
+    return;
+  }
+
   removeLocalCustomQuestion(questionId);
 
   try {

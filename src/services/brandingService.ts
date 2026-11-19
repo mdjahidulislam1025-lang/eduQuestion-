@@ -43,8 +43,8 @@ export async function loadWorkspaceBranding(): Promise<Workspace> {
       const remoteData = snap.data() as Partial<Workspace>;
       result = { ...result, ...remoteData, id: 'ws-main' };
       localStorage.setItem('edu_workspace', JSON.stringify(result));
-    } else {
-      // Initialize default in Firestore if it doesn't exist
+    } else if (auth.currentUser) {
+      // Initialize default in Firestore if authenticated and doc doesn't exist
       try {
         await setDoc(docRef, result, { merge: true });
       } catch (err) {

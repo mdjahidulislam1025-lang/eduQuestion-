@@ -26,6 +26,7 @@ import { saveWorkspaceBranding } from '../services/brandingService';
 import { AdminConfigManager } from './AdminConfigManager';
 import { WorkspaceMembersView } from './WorkspaceMembersView';
 import { MathRenderer } from './MathRenderer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   ShieldCheck,
   CheckCircle,
@@ -835,26 +836,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       )}
 
                       {/* CQ Parts */}
-                      {sub.questionType === 'CQ' && sub.cqParts && (
-                        <div className="space-y-1.5 mt-2 pt-2 border-t border-slate-100 text-xs">
-                          <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
-                            <span>ক. <MathRenderer content={sub.cqParts.partA.question} /></span>
-                            <span className="font-bold text-blue-600">[{sub.cqParts.partA.marks}]</span>
+                      {sub.questionType === 'CQ' && sub.cqParts && (() => {
+                        const isMath = isMathSubject(sub.subject);
+                        return (
+                          <div className="space-y-1.5 mt-2 pt-2 border-t border-slate-100 text-xs">
+                            <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
+                              <span>ক. <MathRenderer content={sub.cqParts.partA.question} /></span>
+                              <span className="font-bold text-blue-600">[{isMath ? 2 : sub.cqParts.partA.marks}]</span>
+                            </div>
+                            <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
+                              <span>খ. <MathRenderer content={sub.cqParts.partB.question} /></span>
+                              <span className="font-bold text-blue-600">[{isMath ? 4 : sub.cqParts.partB.marks}]</span>
+                            </div>
+                            <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
+                              <span>গ. <MathRenderer content={sub.cqParts.partC.question} /></span>
+                              <span className="font-bold text-blue-600">[{isMath ? 4 : sub.cqParts.partC.marks}]</span>
+                            </div>
+                            {!isMath && sub.cqParts.partD && (
+                              <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
+                                <span>ঘ. <MathRenderer content={sub.cqParts.partD.question} /></span>
+                                <span className="font-bold text-blue-600">[{sub.cqParts.partD.marks}]</span>
+                              </div>
+                            )}
                           </div>
-                          <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
-                            <span>খ. <MathRenderer content={sub.cqParts.partB.question} /></span>
-                            <span className="font-bold text-blue-600">[{sub.cqParts.partB.marks}]</span>
-                          </div>
-                          <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
-                            <span>গ. <MathRenderer content={sub.cqParts.partC.question} /></span>
-                            <span className="font-bold text-blue-600">[{sub.cqParts.partC.marks}]</span>
-                          </div>
-                          <div className="flex justify-between p-1.5 bg-slate-50 rounded-lg">
-                            <span>ঘ. <MathRenderer content={sub.cqParts.partD.question} /></span>
-                            <span className="font-bold text-blue-600">[{sub.cqParts.partD.marks}]</span>
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {sub.correctAnswer && (
                         <div className="text-xs text-emerald-800 font-semibold bg-emerald-50 p-2 rounded-lg mt-1">

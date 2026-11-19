@@ -702,11 +702,6 @@ export const VERIFIED_BOARD_QUESTIONS: BoardExamQuestionRecord[] = [
         marks: 4,
         answer: '$p = 7 + 4\\sqrt{3} = 4 + 2(2)(\\sqrt{3}) + 3 = (2 + \\sqrt{3})^2$\\n$\\therefore \\sqrt{p} = 2 + \\sqrt{3}$।\\n$\\frac{1}{\\sqrt{p}} = \\frac{1}{2 + \\sqrt{3}} = 2 - \\sqrt{3}$।\\n$\\therefore \\sqrt{p} + \\frac{1}{\\sqrt{p}} = (2 + \\sqrt{3}) + (2 - \\sqrt{3}) = 4$।',
       },
-      partD: {
-        question: 'ঘ. ব্যাখ্যা করো কেন বীজগণিতীয় অভেদাবলী ব্যবহার করে জটিল অমূলদ রাশির সরলীকরণ দ্রুত সম্ভব।',
-        marks: 2,
-        answer: 'পূর্ণবর্গ রূপান্তর ও অনবন্ধী করণী (conjugate surds) পদ্ধতি ব্যবহার করে জটিল অমূলদ হরকে মূলদে রূপান্তর করা যায়, যা নির্ভুল হিসাব নিশ্চিত করে।',
-      },
     },
     marks: 10,
     difficulty: 'Medium',

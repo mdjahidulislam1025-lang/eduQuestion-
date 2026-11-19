@@ -16,6 +16,7 @@ import { MathRenderer } from './MathRenderer';
 import { QuestionSelectorModal } from './QuestionSelectorModal';
 import { downloadExamPaperPdf, printExamPaperIsolated } from '../services/pdfPrintService';
 import { organizeQuestionsIntoSections } from '../services/sectionOrganizer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   Zap,
   Sparkles,
@@ -664,7 +665,9 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
             type: 'CQ' as const,
             titleBn: 'সৃজনশীল প্রশ্ন (CQ)',
             titleEn: 'Creative Questions (CQ)',
-            subtitleBn: 'উদ্দীপকসহ ক, খ, গ, ঘ (১০ মার্ক)',
+            subtitleBn: isMathSubject(selectedSubject)
+              ? 'গণিত: ক, খ, গ (২+৪+৪ = ১০ মার্ক)'
+              : 'উদ্দীপকসহ ক, খ, গ, ঘ (১০ মার্ক)',
             color: 'border-amber-200 bg-amber-50/60 text-amber-900',
             activeColor: 'border-amber-600 bg-amber-600 text-white shadow-md shadow-amber-500/20',
             icon: FileText,
@@ -1350,40 +1353,52 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
                           </div>
                         )}
 
-                        {/* CQ Parts (ক, খ, গ, ঘ) */}
-                        {q.questionType === 'CQ' && q.cqParts && (
-                          <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
-                            {[
-                              { label: 'ক (জ্ঞানমূলক)', part: q.cqParts.partA, mark: 1 },
-                              { label: 'খ (অনুধাবনমূলক)', part: q.cqParts.partB, mark: 2 },
-                              { label: 'গ (প্রয়োগমূলক)', part: q.cqParts.partC, mark: 3 },
-                              { label: 'ঘ (উচ্চতর দক্ষতামূলক)', part: q.cqParts.partD, mark: 4 },
-                            ].map((pItem, pIdx) => (
-                              <div
-                                key={pIdx}
-                                className="p-2.5 rounded-xl bg-slate-50 border border-slate-200"
-                              >
-                                <div className="flex justify-between items-start gap-2">
-                                  <div className="font-medium text-slate-800">
-                                    <span className="font-bold text-blue-700 mr-1.5">
-                                      {pItem.label}:
+                        {/* CQ Parts (ক, খ, গ অথবা ক, খ, গ, ঘ) */}
+                        {q.questionType === 'CQ' && q.cqParts && (() => {
+                          const isMath = isMathSubject(q.subject);
+                          const cqList = isMath
+                            ? [
+                                { label: 'ক', part: q.cqParts.partA, mark: 2 },
+                                { label: 'খ', part: q.cqParts.partB, mark: 4 },
+                                { label: 'গ', part: q.cqParts.partC, mark: 4 },
+                              ]
+                            : [
+                                { label: 'ক (জ্ঞানমূলক)', part: q.cqParts.partA, mark: q.cqParts.partA?.marks || 1 },
+                                { label: 'খ (অনুধাবনমূলক)', part: q.cqParts.partB, mark: q.cqParts.partB?.marks || 2 },
+                                { label: 'গ (প্রয়োগমূলক)', part: q.cqParts.partC, mark: q.cqParts.partC?.marks || 3 },
+                                ...(q.cqParts.partD
+                                  ? [{ label: 'ঘ (উচ্চতর দক্ষতামূলক)', part: q.cqParts.partD, mark: q.cqParts.partD?.marks || 4 }]
+                                  : []),
+                              ];
+                          return (
+                            <div className="space-y-2 pt-2 border-t border-slate-100 text-xs">
+                              {cqList.map((pItem, pIdx) => (
+                                <div
+                                  key={pIdx}
+                                  className="p-2.5 rounded-xl bg-slate-50 border border-slate-200"
+                                >
+                                  <div className="flex justify-between items-start gap-2">
+                                    <div className="font-medium text-slate-800">
+                                      <span className="font-bold text-blue-700 mr-1.5">
+                                        {pItem.label}:
+                                      </span>
+                                      <MathRenderer content={pItem.part?.question || ''} />
+                                    </div>
+                                    <span className="font-bold text-slate-500 shrink-0">
+                                      [{pItem.mark}]
                                     </span>
-                                    <MathRenderer content={pItem.part?.question || ''} />
                                   </div>
-                                  <span className="font-bold text-slate-500 shrink-0">
-                                    [{pItem.mark}]
-                                  </span>
+                                  {includeAnswers && pItem.part?.answer && (
+                                    <div className="mt-1.5 pt-1.5 border-t border-slate-200 text-[11px] text-emerald-800">
+                                      <span className="font-bold">নমুনা উত্তর: </span>
+                                      <MathRenderer content={pItem.part.answer} />
+                                    </div>
+                                  )}
                                 </div>
-                                {includeAnswers && pItem.part?.answer && (
-                                  <div className="mt-1.5 pt-1.5 border-t border-slate-200 text-[11px] text-emerald-800">
-                                    <span className="font-bold">নমুনা উত্তর: </span>
-                                    <MathRenderer content={pItem.part.answer} />
-                                  </div>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                              ))}
+                            </div>
+                          );
+                        })()}
 
                         {/* SQ Answer */}
                         {q.questionType === 'SQ' && includeAnswers && q.correctAnswer && (
@@ -1625,27 +1640,39 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
                           )}
 
                           {/* CQ Subparts */}
-                          {q.questionType === 'CQ' && q.cqParts && (
-                            <div className="space-y-1.5 pl-4 pt-1">
-                              {[
-                                { prefix: 'ক.', part: q.cqParts.partA, marks: 1 },
-                                { prefix: 'খ.', part: q.cqParts.partB, marks: 2 },
-                                { prefix: 'গ.', part: q.cqParts.partC, marks: 3 },
-                                { prefix: 'ঘ.', part: q.cqParts.partD, marks: 4 },
-                              ].map((sub, sIdx) => (
-                                <div
-                                  key={sIdx}
-                                  className="flex justify-between items-baseline gap-2"
-                                >
-                                  <div>
-                                    <span className="font-bold mr-1">{sub.prefix}</span>
-                                    <MathRenderer content={sub.part?.question || ''} />
+                          {q.questionType === 'CQ' && q.cqParts && (() => {
+                            const isMath = isMathSubject(q.subject);
+                            const subList = isMath
+                              ? [
+                                  { prefix: 'ক.', part: q.cqParts.partA, marks: 2 },
+                                  { prefix: 'খ.', part: q.cqParts.partB, marks: 4 },
+                                  { prefix: 'গ.', part: q.cqParts.partC, marks: 4 },
+                                ]
+                              : [
+                                  { prefix: 'ক.', part: q.cqParts.partA, marks: q.cqParts.partA?.marks || 1 },
+                                  { prefix: 'খ.', part: q.cqParts.partB, marks: q.cqParts.partB?.marks || 2 },
+                                  { prefix: 'গ.', part: q.cqParts.partC, marks: q.cqParts.partC?.marks || 3 },
+                                  ...(q.cqParts.partD
+                                    ? [{ prefix: 'ঘ.', part: q.cqParts.partD, marks: q.cqParts.partD?.marks || 4 }]
+                                    : []),
+                                ];
+                            return (
+                              <div className="space-y-1.5 pl-4 pt-1">
+                                {subList.map((sub, sIdx) => (
+                                  <div
+                                    key={sIdx}
+                                    className="flex justify-between items-baseline gap-2"
+                                  >
+                                    <div>
+                                      <span className="font-bold mr-1">{sub.prefix}</span>
+                                      <MathRenderer content={sub.part?.question || ''} />
+                                    </div>
+                                    <span className="font-bold shrink-0">[{sub.marks}]</span>
                                   </div>
-                                  <span className="font-bold shrink-0">[{sub.marks}]</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
@@ -1683,22 +1710,31 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
                               </div>
                             )}
 
-                            {q.questionType === 'CQ' && q.cqParts && (
-                              <div className="space-y-1 pl-2 text-slate-800">
-                                <div>
-                                  <strong>ক (১ নম্বর):</strong> {q.cqParts.partA?.answer || 'সঠিক সংজ্ঞার্থ।'}
+                            {q.questionType === 'CQ' && q.cqParts && (() => {
+                              const isMath = isMathSubject(q.subject);
+                              return (
+                                <div className="space-y-1 pl-2 text-slate-800">
+                                  <div>
+                                    <strong>ক ({isMath ? 2 : q.cqParts.partA?.marks || 1} নম্বর):</strong>{' '}
+                                    {q.cqParts.partA?.answer || 'সঠিক সমাধান/সংজ্ঞার্থ।'}
+                                  </div>
+                                  <div>
+                                    <strong>খ ({isMath ? 4 : q.cqParts.partB?.marks || 2} নম্বর):</strong>{' '}
+                                    {q.cqParts.partB?.answer || 'গাণিতিক/ব্যাখ্যামূলক সমাধান।'}
+                                  </div>
+                                  <div>
+                                    <strong>গ ({isMath ? 4 : q.cqParts.partC?.marks || 3} নম্বর):</strong>{' '}
+                                    {q.cqParts.partC?.answer || 'গাণিতিক/প্রয়োগিক সমাধান।'}
+                                  </div>
+                                  {!isMath && q.cqParts.partD && (
+                                    <div>
+                                      <strong>ঘ ({q.cqParts.partD?.marks || 4} নম্বর):</strong>{' '}
+                                      {q.cqParts.partD?.answer || 'উচ্চতর দক্ষতা বিশ্লেষণ।'}
+                                    </div>
+                                  )}
                                 </div>
-                                <div>
-                                  <strong>খ (২ নম্বর):</strong> {q.cqParts.partB?.answer || 'ব্যাখ্যামূলক উত্তর।'}
-                                </div>
-                                <div>
-                                  <strong>গ (৩ নম্বর):</strong> {q.cqParts.partC?.answer || 'গাণিতিক/প্রয়োগিক সমাধান।'}
-                                </div>
-                                <div>
-                                  <strong>ঘ (৪ নম্বর):</strong> {q.cqParts.partD?.answer || 'উচ্চতর দক্ষতা বিশ্লেষণ।'}
-                                </div>
-                              </div>
-                            )}
+                              );
+                            })()}
 
                             {q.questionType === 'SQ' && (
                               <div className="pl-2 text-slate-800">

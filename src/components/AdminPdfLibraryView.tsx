@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { NCTB_SUBJECTS } from '../data/curriculumData';
 import { MathRenderer } from './MathRenderer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   FileText,
   Upload,
@@ -1323,27 +1324,32 @@ export const AdminPdfLibraryView: React.FC<AdminPdfLibraryViewProps> = ({
                         </div>
                       )}
 
-                      {/* CQ Sub-parts (ক, খ, গ, ঘ) */}
-                      {q.cqParts && (
-                        <div className="space-y-2 pt-2 border-t border-slate-100">
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                            <span className="font-bold text-slate-700">ক. ({q.cqParts.partA.marks} নম্বর): </span>
-                            <MathRenderer text={q.cqParts.partA.question} />
+                      {/* CQ Sub-parts (ক, খ, গ অথবা ক, খ, গ, ঘ) */}
+                      {q.cqParts && (() => {
+                        const isMath = isMathSubject(q.subject);
+                        return (
+                          <div className="space-y-2 pt-2 border-t border-slate-100">
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                              <span className="font-bold text-slate-700">ক. ({isMath ? 2 : q.cqParts.partA.marks} নম্বর): </span>
+                              <MathRenderer text={q.cqParts.partA.question} />
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                              <span className="font-bold text-slate-700">খ. ({isMath ? 4 : q.cqParts.partB.marks} নম্বর): </span>
+                              <MathRenderer text={q.cqParts.partB.question} />
+                            </div>
+                            <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                              <span className="font-bold text-slate-700">গ. ({isMath ? 4 : q.cqParts.partC.marks} নম্বর): </span>
+                              <MathRenderer text={q.cqParts.partC.question} />
+                            </div>
+                            {!isMath && q.cqParts.partD && (
+                              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+                                <span className="font-bold text-slate-700">ঘ. ({q.cqParts.partD.marks} নম্বর): </span>
+                                <MathRenderer text={q.cqParts.partD.question} />
+                              </div>
+                            )}
                           </div>
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                            <span className="font-bold text-slate-700">খ. ({q.cqParts.partB.marks} নম্বর): </span>
-                            <MathRenderer text={q.cqParts.partB.question} />
-                          </div>
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                            <span className="font-bold text-slate-700">গ. ({q.cqParts.partC.marks} নম্বর): </span>
-                            <MathRenderer text={q.cqParts.partC.question} />
-                          </div>
-                          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
-                            <span className="font-bold text-slate-700">ঘ. ({q.cqParts.partD.marks} নম্বর): </span>
-                            <MathRenderer text={q.cqParts.partD.question} />
-                          </div>
-                        </div>
-                      )}
+                        );
+                      })()}
 
                       {/* Model Answer & Explanation */}
                       {(q.correctAnswer || q.explanation) && (

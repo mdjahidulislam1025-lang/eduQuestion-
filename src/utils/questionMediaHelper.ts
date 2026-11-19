@@ -220,3 +220,13 @@ export function parseSmartQuestionText(raw: string): ParsedQuestionResult {
     detectedChapter,
   };
 }
+
+/**
+ * Checks whether a subject name refers to Mathematics / Higher Mathematics
+ * where SSC CQ mark distribution is 2, 4, 4 (3 sub-questions: ক, খ, গ).
+ */
+export function isMathSubject(subject?: string): boolean {
+  if (!subject) return false;
+  return /math|গণিত/i.test(subject);
+}
+

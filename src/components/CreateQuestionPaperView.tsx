@@ -15,6 +15,7 @@ import {
   organizeQuestionsIntoSections,
   addQuestionsToPaperSections,
 } from '../services/sectionOrganizer';
+import { isMathSubject } from '../utils/questionMediaHelper';
 import {
   CheckSquare,
   Square,
@@ -671,14 +672,19 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                               {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
                             </div>
                           )}
-                          {q.cqParts && (
-                            <div className="pl-2 space-y-0.5 text-xs text-slate-700">
-                              <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
-                              <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({q.cqParts.partB.marks})</div>
-                              <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({q.cqParts.partC.marks})</div>
-                              <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
-                            </div>
-                          )}
+                          {q.cqParts && (() => {
+                            const isMath = isMathSubject(q.subject);
+                            return (
+                              <div className="pl-2 space-y-0.5 text-xs text-slate-700">
+                                <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({isMath ? 2 : q.cqParts.partA.marks})</div>
+                                <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({isMath ? 4 : q.cqParts.partB.marks})</div>
+                                <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({isMath ? 4 : q.cqParts.partC.marks})</div>
+                                {!isMath && q.cqParts.partD && (
+                                  <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
+                                )}
+                              </div>
+                            );
+                          })()}
                         </div>
                       ) : (
                         <div className="text-xs sm:text-sm text-slate-800 font-bangla">
@@ -1217,14 +1223,19 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                                             {q.diagramCaption && <span className="text-[10px] text-slate-500 italic">{q.diagramCaption}</span>}
                                           </div>
                                         )}
-                                        {q.cqParts && (
-                                          <div className="pl-2 text-xs text-slate-700 space-y-0.5">
-                                            <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({q.cqParts.partA.marks})</div>
-                                            <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({q.cqParts.partB.marks})</div>
-                                            <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({q.cqParts.partC.marks})</div>
-                                            <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
-                                          </div>
-                                        )}
+                                        {q.cqParts && (() => {
+                                          const isMath = isMathSubject(q.subject);
+                                          return (
+                                            <div className="pl-2 text-xs text-slate-700 space-y-0.5">
+                                              <div>ক. <MathRenderer content={q.cqParts.partA.question} /> ({isMath ? 2 : q.cqParts.partA.marks})</div>
+                                              <div>খ. <MathRenderer content={q.cqParts.partB.question} /> ({isMath ? 4 : q.cqParts.partB.marks})</div>
+                                              <div>গ. <MathRenderer content={q.cqParts.partC.question} /> ({isMath ? 4 : q.cqParts.partC.marks})</div>
+                                              {!isMath && q.cqParts.partD && (
+                                                <div>ঘ. <MathRenderer content={q.cqParts.partD.question} /> ({q.cqParts.partD.marks})</div>
+                                              )}
+                                            </div>
+                                          );
+                                        })()}
                                       </div>
                                     ) : (
                                       <div>
@@ -1394,26 +1405,31 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
                             </div>
                           )}
 
-                          {q.questionType === 'CQ' && q.cqParts && (
-                            <div className="pl-5 mt-1.5 space-y-1 text-xs">
-                              <div className="flex justify-between">
-                                <span>ক. <MathRenderer content={q.cqParts.partA.question} /></span>
-                                <span className="font-semibold">{q.cqParts.partA.marks}</span>
+                          {q.questionType === 'CQ' && q.cqParts && (() => {
+                            const isMath = isMathSubject(q.subject);
+                            return (
+                              <div className="pl-5 mt-1.5 space-y-1 text-xs">
+                                <div className="flex justify-between">
+                                  <span>ক. <MathRenderer content={q.cqParts.partA.question} /></span>
+                                  <span className="font-semibold">{isMath ? 2 : q.cqParts.partA.marks}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>খ. <MathRenderer content={q.cqParts.partB.question} /></span>
+                                  <span className="font-semibold">{isMath ? 4 : q.cqParts.partB.marks}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                  <span>গ. <MathRenderer content={q.cqParts.partC.question} /></span>
+                                  <span className="font-semibold">{isMath ? 4 : q.cqParts.partC.marks}</span>
+                                </div>
+                                {!isMath && q.cqParts.partD && (
+                                  <div className="flex justify-between">
+                                    <span>ঘ. <MathRenderer content={q.cqParts.partD.question} /></span>
+                                    <span className="font-semibold">{q.cqParts.partD.marks}</span>
+                                  </div>
+                                )}
                               </div>
-                              <div className="flex justify-between">
-                                <span>খ. <MathRenderer content={q.cqParts.partB.question} /></span>
-                                <span className="font-semibold">{q.cqParts.partB.marks}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>গ. <MathRenderer content={q.cqParts.partC.question} /></span>
-                                <span className="font-semibold">{q.cqParts.partC.marks}</span>
-                              </div>
-                              <div className="flex justify-between">
-                                <span>ঘ. <MathRenderer content={q.cqParts.partD.question} /></span>
-                                <span className="font-semibold">{q.cqParts.partD.marks}</span>
-                              </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       ))}
                     </div>
