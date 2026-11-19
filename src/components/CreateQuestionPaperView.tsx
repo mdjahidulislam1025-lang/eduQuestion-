@@ -403,9 +403,10 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
   const handleDirectDownloadPdf = async () => {
     try {
       setIsPdfGenerating(true);
+      const safeTitle = (currentPaper.title || 'SSC_Question_Paper').replace(/[\\/:*?"<>|\s]+/g, '_');
       await downloadExamPaperPdf(
         'editor-printable-preview',
-        `${(currentPaper.title || 'SSC_Question_Paper').replace(/\s+/g, '_')}.pdf`
+        `${safeTitle}_A4.pdf`
       );
     } catch (err) {
       console.error('PDF download error:', err);
@@ -1312,11 +1313,14 @@ export const CreateQuestionPaperView: React.FC<CreateQuestionPaperViewProps> = (
           </div>
 
           {/* Hidden/Offscreen A4 Printable Element for Direct Download & Print */}
-          <div className="sr-only" aria-hidden="true">
+          <div
+            className="fixed -left-[99999px] top-0 w-[794px] opacity-0 pointer-events-none print:static print:w-full print:opacity-100"
+            aria-hidden="true"
+          >
             <div
               id="editor-printable-preview"
               className="bg-white text-slate-900 p-6 sm:p-8 font-serif-bangla text-sm print:p-0 print:border-none print:shadow-none"
-              style={{ width: '100%', maxWidth: '794px' }}
+              style={{ width: '794px', maxWidth: '794px' }}
             >
               <div className="text-center border-b-2 border-slate-900 pb-3 mb-4 print:pb-2 print:mb-3">
                 {currentPaper.institutionName && (

@@ -35,6 +35,10 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+#edu-print-stage {
+  display: none;
+}
+
 /* Print styling for professional A4 examination papers */
 @media print {
   body {
@@ -42,9 +46,42 @@
     color: black !important;
     font-size: 11pt !important;
     line-height: 1.4 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.edu-printing-active > *:not(#edu-print-stage) {
+    display: none !important;
+  }
+
+  body.edu-printing-active > #edu-print-stage {
+    display: block !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    color: #0f172a !important;
+  }
+
+  #edu-print-stage .print-page-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    border: 0 !important;
+  }
+
+  #edu-print-stage .print-page-spacer-top {
+    height: 11mm !important;
+  }
+
+  #edu-print-stage .print-page-spacer-bottom {
+    height: 12mm !important;
+  }
+
+  #edu-print-stage .print-page-body {
+    padding: 0 14mm !important;
+    vertical-align: top !important;
   }
 
   .no-print,
+  .pdf-hide,
   nav,
   aside,
   header,
@@ -69,15 +106,24 @@
     min-height: 0 !important;
     height: auto !important;
     overflow: visible !important;
-    padding: 0 !important;
+    padding: 12mm 14mm !important;
     margin: 0 !important;
     box-shadow: none !important;
     border: none !important;
+    position: static !important;
+    opacity: 1 !important;
+  }
+
+  #edu-print-stage #printable-exam-paper,
+  #edu-print-stage #editor-printable-preview,
+  #edu-print-stage #easy-printable-paper,
+  #edu-print-stage .exam-page {
+    padding: 0 !important;
   }
 
   @page {
     size: A4 portrait;
-    margin: 1.2cm 1.5cm 1.5cm 1.5cm;
+    margin: 0mm !important;
   }
 
   .page-break-after {

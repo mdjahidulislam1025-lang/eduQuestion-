@@ -153,6 +153,7 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
   const [pdfPrintMode, setPdfPrintMode] = useState<'paper' | 'paper_and_answers' | 'answers_only'>('paper');
   const [examTitle, setExamTitle] = useState('শ্রেণি মূল্যায়ন পরীক্ষা ২০২৬');
   const [examDuration, setExamDuration] = useState('৪০ মিনিট');
+  const [isEasyPdfGenerating, setIsEasyPdfGenerating] = useState(false);
 
   // Filter subjects for SSC curriculum
   const availableSubjects = NCTB_SUBJECTS.filter((s) =>
@@ -1745,8 +1746,8 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
                     </div>
                   )}
 
-                  {/* Document Footer */}
-                  <div className="pt-6 border-t border-slate-200 text-center text-[10px] text-slate-400 font-sans">
+                  {/* Document Footer (Hidden during PDF export and print) */}
+                  <div className="no-print pdf-hide pt-6 border-t border-slate-200 text-center text-[10px] text-slate-400 font-sans">
                     EduQuestion AI • বাংলাদেশ জাতীয় শিক্ষাক্রম ও পাঠ্যপুস্তক বোর্ড (NCTB) • A4 Print Ready
                   </div>
                 </div>
@@ -1769,17 +1770,29 @@ export const EasyModeView: React.FC<EasyModeViewProps> = ({
                 </button>
                 <button
                   type="button"
+                  disabled={isEasyPdfGenerating}
                   onClick={async () => {
-                    await downloadExamPaperPdf(
-                      'easy-printable-paper',
-                      `${examTitle.replace(/\s+/g, '_')}_${selectedClass}_A4.pdf`
-                    );
+                    try {
+                      setIsEasyPdfGenerating(true);
+                      const safeTitle = (examTitle || 'Exam_Paper').replace(/[\\/:*?"<>|\s]+/g, '_');
+                      await downloadExamPaperPdf(
+                        'easy-printable-paper',
+                        `${safeTitle}_${selectedClass.replace(/\s+/g, '_')}_A4.pdf`
+                      );
+                      showToast('PDF সফলভাবে ডাউনলোড হয়েছে!');
+                    } catch (err) {
+                      console.error('EasyMode PDF generation error:', err);
+                      showToast('সরাসরি PDF তৈরিতে সমস্যা হয়েছে — প্রিন্ট ডায়ালগ খোলা হচ্ছে।');
+                      printExamPaperIsolated('easy-printable-paper');
+                    } finally {
+                      setIsEasyPdfGenerating(false);
+                    }
                   }}
-                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl text-xs font-extrabold flex items-center gap-1.5 shadow-md shadow-emerald-500/20 active:scale-95 cursor-pointer"
                   title="A4 সাইজের হাই-রেজোলিউশন PDF ফাইল সরাসরি ডাউনলোড করুন"
                 >
                   <Download className="w-4 h-4" />
-                  PDF ডাউনলোড (A4)
+                  {isEasyPdfGenerating ? 'তৈরি হচ্ছে...' : 'PDF ডাউনলোড (A4)'}
                 </button>
                 <button
                   type="button"

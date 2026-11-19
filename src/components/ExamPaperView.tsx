@@ -20,6 +20,7 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
 
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const handlePrint = () => {
     printExamPaperIsolated('printable-exam-paper');
@@ -28,16 +29,19 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
   const handleDownloadPdf = async (outputMode: 'question_paper' | 'complete' = 'question_paper') => {
     try {
       setIsPdfGenerating(true);
+      setDownloadError(null);
       if (outputMode === 'complete' && viewMode !== 'answers') {
         setViewMode('answers');
-        await new Promise((r) => setTimeout(r, 200));
+        await new Promise((r) => setTimeout(r, 250));
       }
-      await downloadExamPaperPdf('printable-exam-paper', `${paper.title.replace(/\s+/g, '_')}_A4.pdf`);
+      const safeTitle = (paper.title || 'SSC_Question_Paper').replace(/[\\/:*?"<>|\s]+/g, '_');
+      await downloadExamPaperPdf('printable-exam-paper', `${safeTitle}_A4.pdf`);
       setDownloadSuccess(`PDF সফলভাবে ডাউনলোড হয়েছে (${outputMode === 'complete' ? 'উত্তরমালা সহ' : 'প্রশ্নপত্র'})`);
-      setTimeout(() => setDownloadSuccess(null), 3500);
+      setTimeout(() => setDownloadSuccess(null), 4000);
     } catch (err) {
       console.error('PDF generation error', err);
-      // Fallback to print dialog if canvas rendering fails
+      setDownloadError('সরাসরি PDF তৈরিতে সমস্যা হয়েছে — প্রিন্ট ডায়ালগ খোলা হচ্ছে (Save as PDF নির্বাচন করুন)।');
+      setTimeout(() => setDownloadError(null), 6000);
       handlePrint();
     } finally {
       setIsPdfGenerating(false);
@@ -68,6 +72,12 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
             {downloadSuccess}
           </span>
           <button onClick={() => setDownloadSuccess(null)} className="text-emerald-700 hover:text-emerald-900 font-bold">✕</button>
+        </div>
+      )}
+      {downloadError && (
+        <div className="no-print p-3 bg-amber-50 border border-amber-300 text-amber-900 rounded-xl text-xs font-semibold flex items-center justify-between shadow-xs">
+          <span>{downloadError}</span>
+          <button onClick={() => setDownloadError(null)} className="text-amber-700 hover:text-amber-900 font-bold">✕</button>
         </div>
       )}
 
@@ -556,8 +566,8 @@ export const ExamPaperView: React.FC<ExamPaperViewProps> = ({ paper, onUpdatePap
             ))}
           </div>
 
-          {/* Paper Footer */}
-          <div className="mt-12 pt-4 border-t border-slate-300 text-center text-[10px] text-slate-500 flex justify-between items-center">
+          {/* Paper Footer (Hidden during PDF download and printing) */}
+          <div className="no-print pdf-hide mt-12 pt-4 border-t border-slate-300 text-center text-[10px] text-slate-500 flex justify-between items-center">
             <span>EduQuestion AI — Personal NCTB Examination Suite</span>
             <span>পৃষ্ঠা ১</span>
             <span>{paper.subject} • {paper.classLevel}</span>
